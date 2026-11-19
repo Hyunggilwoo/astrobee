@@ -1,0 +1,36 @@
+name: HCI crew_assist
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install test dependencies
+        run: python -m pip install -r hci/crew_assist/requirements-dev.txt
+
+      - name: Syntax-check shell and Python
+        run: |
+          bash -n hci/up.sh hci/down.sh hci/smoke.sh hci/crew_assist/scripts/download_vosk_model.sh
+          bash -n hci/docker/scripts/*.sh
+          python -m compileall -q hci/crew_assist hci/docker/scripts/patch_nav_cam.py
+
+      - name: Mock-mode pytest
+        working-directory: hci/crew_assist
+        run: python -m pytest -q
+
+  compose:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate compose file
+        run: docker compose -f hci/docker/compose.yml config >/tmp/hci-compose.resolved.yml
