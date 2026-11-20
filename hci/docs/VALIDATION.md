@@ -30,6 +30,35 @@ The move to rack alpha used frame `world`. Return to dock was approach-then-dock
 - **GitHub Actions** had not run yet at the time of this note. The workflow is `.github/workflows/hci_crew_assist.yml` (pytest on Python 3.10, plus `docker compose config`). It does not build the NASA image.
 - **NASA's existing workflows** still say `runs-on: ubuntu-20.04`. They were left alone. If those jobs fail, it is the runner image, not this HCI change.
 
+## M2 (20 Nov 2026) — ROS 2 Jazzy client
+
+Same VM, same Noetic sim image. Jazzy client image: `ros:jazzy-ros-base` plus the HCI message package. Branch `cursor/hci-ros2-bridge-m2-0778`.
+
+### What passed
+
+| Check | Result |
+|---|---|
+| Mock pytest, including the new mapping tests | 104 passed, 10 skipped (same 10 voice skips) |
+| `docker compose config` | accepted, now with `ros1_relay` and `ros2` |
+| Jazzy image build | `hci_ff_msgs` compiled. Two constant names had to be `DATA_TYPE_VEC3D` and `DATA_TYPE_MAT33F` because Jazzy rejects lowercase in constant names. Values stay 6 and 7. |
+| `./hci/smoke_ros2.sh` | exit 0. Driven only by `cli.py --backend ros2` inside the Jazzy container. |
+| undock | OK in 30.5 s |
+| `simpleMove6DOF` rack alpha `(11.3, -7.5, 4.85)` frame `world` | OK in 40.1 s |
+| approach `(10.34, -9.51, 4.49)` then `dock` berth 1 | OK in 43.3 s and 93.1 s. No `autoReturn`. |
+| Final `/loc/truth/pose` | `9.832 -9.810 4.296`, quaternion about `0 0 -0.007 1`. Berth is `9.816 -9.806 4.293`. |
+| Bridge overhead (command one-way + ack one-way), 4 samples | mean 0.58 ms, max 0.73 ms. Command one-way mean 0.32 ms, ack one-way mean 0.26 ms. |
+| `/hw/cam_nav` on ROS 2 | one frame, 320×240 `mono8` |
+
+The executive accepted the commands, so `cmd_origin` was empty in practice: a `guest_science` origin would have been `EXEC_FAILED`.
+
+### What was not run
+
+- **`ros1_bridge` itself.** Upstream does not support Jazzy on Ubuntu 24.04, and a prebuilt bridge would not include `ff_msgs`. The relay is the stand-in. Humble-from-source inside the Noetic image was not attempted.
+- **`/gnc/ekf`.** Truth pose is the bridged pose. The EKF state message is not forwarded.
+- **RViz, the Gazebo client, Windows/Mac/WSL2, and the microphone.** Same gaps as M1. `HCI_GUI=0` for this run.
+- **The full sortie was not repeated** after switching DDS discovery from the deprecated `ROS_LOCALHOST_ONLY` (used for the flight above) to `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST`. After the switch, `/hci_bridge/ready` still came up and `/hw/cam_nav` still delivered a 320×240 `mono8` frame. The command path was not flown a second time.
+- **GitHub Actions for this branch** had not finished at the time of this note.
+
 ## Commands Hyunggil runs locally
 
 From a checkout of this fork, with Docker installed and at least about 8 GB of RAM for the VM:
@@ -42,7 +71,8 @@ cd hci/crew_assist && python3 -m pytest -q
 # browser:  http://localhost:8088
 # desktop:  http://localhost:6080/vnc.html?autoconnect=1&resize=scale
 
-./hci/smoke.sh          # undock, rack alpha, return to dock
+./hci/smoke.sh          # undock, rack alpha, return to dock, ROS 1 path
+./hci/smoke_ros2.sh      # same sortie, driven from ROS 2 Jazzy
 ./hci/down.sh
 ```
 

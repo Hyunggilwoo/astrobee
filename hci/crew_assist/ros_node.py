@@ -45,7 +45,7 @@ class IntentBridge:
         print(msg, flush=True)
         with self._lock:
             self.lines.append(str(msg))
-            del self.lines[:-self.max_lines]
+            del self.lines[: -self.max_lines]
 
     def status_dict(self) -> dict:
         session = self.session
@@ -70,8 +70,14 @@ class IntentBridge:
         return self.session.submit(text)
 
 
-def make_runtime(locations: str, mock: bool, allow_todo: bool, image_dir: str,
-                 timeout_scale: float, mock_move_time: float):
+def make_runtime(
+    locations: str,
+    mock: bool,
+    allow_todo: bool,
+    image_dir: str,
+    timeout_scale: float,
+    mock_move_time: float,
+):
     locs = load_locations(locations)
     parser = IntentParser(locs)
     if mock:
@@ -85,7 +91,10 @@ def make_runtime(locations: str, mock: bool, allow_todo: bool, image_dir: str,
         )
     commander = ac.AstrobeeCommander(backend)
     seq = Sequencer(
-        commander, locs, image_dir=image_dir, allow_todo=allow_todo,
+        commander,
+        locs,
+        image_dir=image_dir,
+        allow_todo=allow_todo,
         timeouts={k: v * timeout_scale for k, v in DEFAULT_TIMEOUTS.items()},
     )
     bridge = IntentBridge()
@@ -110,13 +119,24 @@ def _configure_logging(verbose: bool, log_path: Optional[str]) -> None:
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument("--mock", action="store_true", help="simulate acks; no ROS")
     p.add_argument("--locations", default=os.path.join(HERE, "locations.yaml"))
-    p.add_argument("-c", "--command", action="append", help="mock/script: run these, then exit")
-    p.add_argument("--yes", action="store_true", help="accepted for CLI compatibility; the node never prompts")
+    p.add_argument(
+        "-c", "--command", action="append", help="mock/script: run these, then exit"
+    )
+    p.add_argument(
+        "--yes",
+        action="store_true",
+        help="accepted for CLI compatibility; the node never prompts",
+    )
     p.add_argument("--allow-todo", action="store_true")
-    p.add_argument("--image-dir", default=os.environ.get("HCI_IMAGE_DIR", os.path.join(HERE, "images")))
+    p.add_argument(
+        "--image-dir",
+        default=os.environ.get("HCI_IMAGE_DIR", os.path.join(HERE, "images")),
+    )
     p.add_argument("--log", default=None)
     p.add_argument("--timeout-scale", type=float, default=1.0)
     p.add_argument("--mock-move-time", type=float, default=0.0)
@@ -124,8 +144,12 @@ def main(argv=None) -> int:
     args = p.parse_args(argv)
 
     session, bridge = make_runtime(
-        args.locations, args.mock, args.allow_todo, args.image_dir,
-        args.timeout_scale, args.mock_move_time,
+        args.locations,
+        args.mock,
+        args.allow_todo,
+        args.image_dir,
+        args.timeout_scale,
+        args.mock_move_time,
     )
     _configure_logging(args.verbose, args.log)
 
@@ -140,8 +164,10 @@ def main(argv=None) -> int:
                 session.stop("Ctrl-C")
                 ok = False
                 break
-            if intent is None or (intent.action != "stop" and (
-                    len(session.results) == before or not session.results[-1].ok)):
+            if intent is None or (
+                intent.action != "stop"
+                and (len(session.results) == before or not session.results[-1].ok)
+            ):
                 ok = False
                 print("aborting remaining scripted commands", flush=True)
                 break
@@ -169,7 +195,10 @@ def main(argv=None) -> int:
     rospy.Timer(rospy.Duration(0.5), publish)
     rospy.on_shutdown(lambda: session.stop("node shutdown"))
     publish()
-    print("crew_assist ROS node. intent topic: crew_assist/intent  status: crew_assist/status", flush=True)
+    print(
+        "crew_assist ROS node. intent topic: crew_assist/intent  status: crew_assist/status",
+        flush=True,
+    )
     rospy.spin()
     session.close()
     return 0

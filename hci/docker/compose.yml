@@ -61,3 +61,47 @@ services:
       - ../logs:/hci/logs
       - ../docker:/opt/hci/docker:ro
       - ../crew_assist:/opt/hci/crew_assist:ro
+
+  ros1_relay:
+    image: astrobee-hci:latest
+    network_mode: service:sim
+    init: true
+    stop_grace_period: 15s
+    command: ["relay1"]
+    depends_on:
+      sim:
+        condition: service_healthy
+    environment:
+      ROS_MASTER_URI: http://127.0.0.1:11311
+      ROS_IP: 127.0.0.1
+      HCI_LOG_DIR: /hci/logs
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ../logs:/hci/logs
+      - ../docker:/opt/hci/docker:ro
+      - ../crew_assist:/opt/hci/crew_assist:ro
+
+  ros2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.ros2
+    image: astrobee-hci-ros2:latest
+    network_mode: service:sim
+    init: true
+    stop_grace_period: 15s
+    command: ["relay2"]
+    depends_on:
+      sim:
+        condition: service_healthy
+    environment:
+      ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
+      HCI_BRIDGE_HOST: 127.0.0.1
+      HCI_BRIDGE_PORT: "11511"
+      HCI_LOG_DIR: /hci/logs
+      HCI_BRIDGE_LOG: /hci/logs/bridge_latency.jsonl
+      PYTHONPATH: /opt/hci/crew_assist
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ../logs:/hci/logs
+      - ../crew_assist:/opt/hci/crew_assist:ro
+      - ../ros2:/opt/hci/ros2:ro

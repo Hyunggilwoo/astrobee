@@ -36,7 +36,7 @@ def test_typed_stop_preempts_move():
     t0 = time.time()
     s.submit("stop")
     s.wait_idle()
-    assert time.time() - t0 < 1.0                       # did not wait 5 s for the move
+    assert time.time() - t0 < 1.0  # did not wait 5 s for the move
     r = s.results[-1]
     assert not r.ok and r.steps[-1].status == "CANCELED"
     assert [c.cmd_name for c in be.sent] == ["simpleMove6DOF", "stopAllMotion"]
@@ -48,13 +48,13 @@ def test_typed_stop_preempts_move():
 def test_stop_drops_queued_and_blocks_next_step():
     be, cmd, s, msgs = make(move_time=5.0)
     be.docked = False
-    s.submit("return to dock")       # approach then dock
-    s.submit("go to mid jem")        # queued
+    s.submit("return to dock")  # approach then dock
+    s.submit("go to mid jem")  # queued
     wait_moving(be)
     s.submit("stop")
     s.wait_idle()
     names = [c.cmd_name for c in be.sent]
-    assert names == ["simpleMove6DOF", "stopAllMotion"]   # no dock, no queued move
+    assert names == ["simpleMove6DOF", "stopAllMotion"]  # no dock, no queued move
     assert any("dropped 1 queued" in m for m in msgs)
     s.close()
 
@@ -75,8 +75,13 @@ def test_new_command_after_stop_runs():
 def test_confirm_declined_sends_nothing():
     be = ac.MockBackend()
     cmd = ac.AstrobeeCommander(be)
-    s = CrewSession(IntentParser(LOCS), Sequencer(cmd, LOCS), cmd,
-                    confirm=lambda i: False, echo=lambda m: None)
+    s = CrewSession(
+        IntentParser(LOCS),
+        Sequencer(cmd, LOCS),
+        cmd,
+        confirm=lambda i: False,
+        echo=lambda m: None,
+    )
     assert s.submit("undock") is None
     s.wait_idle()
     assert be.sent == []
@@ -84,17 +89,31 @@ def test_confirm_declined_sends_nothing():
 
 
 def _spawn(*extra):
-    return subprocess.Popen([sys.executable, "-u", os.path.join(HERE, "cli.py"), "--mock", "--yes",
-                             "--mock-move-time", "5", *extra],
-                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            text=True)
+    return subprocess.Popen(
+        [
+            sys.executable,
+            "-u",
+            os.path.join(HERE, "cli.py"),
+            "--mock",
+            "--yes",
+            "--mock-move-time",
+            "5",
+            *extra,
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
 
 
 def test_cli_piped_typed_stop():
     p = _spawn()
-    p.stdin.write("undock\n"); p.stdin.flush()
+    p.stdin.write("undock\n")
+    p.stdin.flush()
     time.sleep(1.0)
-    p.stdin.write("stop\n"); p.stdin.flush()
+    p.stdin.write("stop\n")
+    p.stdin.flush()
     time.sleep(0.5)
     p.stdin.close()
     p.wait(timeout=20)
@@ -105,12 +124,14 @@ def test_cli_piped_typed_stop():
 
 def test_cli_sigint_stops_not_exits():
     p = _spawn()
-    p.stdin.write("undock\n"); p.stdin.flush()
+    p.stdin.write("undock\n")
+    p.stdin.flush()
     time.sleep(1.0)
     p.send_signal(signal.SIGINT)
     time.sleep(0.5)
-    assert p.poll() is None                    # Ctrl-C did not kill the CLI
-    p.stdin.write("quit\n"); p.stdin.flush()
+    assert p.poll() is None  # Ctrl-C did not kill the CLI
+    p.stdin.write("quit\n")
+    p.stdin.flush()
     out = p.communicate(timeout=20)[0]
     assert "Ctrl-C -> stopAllMotion" in out
     assert "undock:CANCELED" in out

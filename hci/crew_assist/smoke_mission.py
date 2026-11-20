@@ -32,13 +32,21 @@ def run(steps=None, timeout_s: float = 300.0, wait_status_s: float = 180.0) -> N
 
     rospy.Subscriber("/crew_assist/status", String, on_status, queue_size=1)
     started = time.time()
-    while state["msg"] is None and time.time() - started < wait_status_s and not rospy.is_shutdown():
+    while (
+        state["msg"] is None
+        and time.time() - started < wait_status_s
+        and not rospy.is_shutdown()
+    ):
         time.sleep(0.2)
     if state["msg"] is None:
         raise RuntimeError("no crew_assist/status (is ros_node.py running?)")
 
     started = time.time()
-    while pub.get_num_connections() < 1 and time.time() - started < 30.0 and not rospy.is_shutdown():
+    while (
+        pub.get_num_connections() < 1
+        and time.time() - started < 30.0
+        and not rospy.is_shutdown()
+    ):
         time.sleep(0.2)
     if pub.get_num_connections() < 1:
         raise RuntimeError("nothing subscribed to /crew_assist/intent")
@@ -69,8 +77,9 @@ def run(steps=None, timeout_s: float = 300.0, wait_status_s: float = 180.0) -> N
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--timeout", type=float, default=300.0,
-                        help="seconds to wait for each step")
+    parser.add_argument(
+        "--timeout", type=float, default=300.0, help="seconds to wait for each step"
+    )
     args = parser.parse_args(argv)
     try:
         run(timeout_s=args.timeout)
@@ -82,4 +91,5 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

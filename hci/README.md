@@ -20,13 +20,18 @@ STOP calls `stopAllMotion` immediately. Return to dock flies to the approach poi
 sends `dock`. It never sends `autoReturn`. Moves use frame `world`. `cmd_origin` is left empty,
 because a `guest_science` origin gets `EXEC_FAILED` when no primary APK is running.
 
+`./hci/up.sh` also starts a ROS 2 Jazzy relay. A Jazzy client drives the same sim with
+`./hci/smoke_ros2.sh` or `python3 hci/crew_assist/cli.py --backend ros2`. The bridge is a
+small typed relay, not `ros1_bridge`: Jazzy and Noetic cannot share one process, and
+`ff_msgs` would still need a custom mapping. See `hci/docs/M2_ROS2_BRIDGE.md`.
+
 ## Milestones
 
 | | Goal | State |
 |---|---|---|
 | M0 | Fork plus this baseline: crew_assist, mock pytest, CI | this change |
 | M1 | Runs anywhere: one Docker command, browser view and drive, no Ubuntu 20.04 install | this change |
-| M2 | ROS 1 to ROS 2 bridge, without rewriting the flight code | not started |
+| M2 | ROS 1 to ROS 2 bridge, without rewriting the flight code | this change |
 | M3 | Phone and web control as the main interface (the M1 page is only the seed) | not started |
 | M4 | Point-and-fly: tap a camera or map point, preview, then a zone-respecting move | not started |
 | M5 | Communication-delay realism (the ISS link is not modeled yet) | not started |

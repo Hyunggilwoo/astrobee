@@ -14,9 +14,10 @@ case "${mode}" in
   sim) exec /opt/hci/docker/scripts/run_sim.sh "$@" ;;
   crew) exec /opt/hci/docker/scripts/run_crew.sh "$@" ;;
   smoke) exec /opt/hci/docker/scripts/run_smoke.sh "$@" ;;
+  relay1) exec /opt/hci/docker/scripts/run_relay.sh "$@" ;;
   bash) exec bash "$@" ;;
   *)
-    echo "hci: unknown mode '${mode}' (expected sim, crew, smoke, or bash)" >&2
+    echo "hci: unknown mode '${mode}' (expected sim, crew, relay1, smoke, or bash)" >&2
     exit 2
     ;;
 esac

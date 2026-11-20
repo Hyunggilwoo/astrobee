@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Synthesize the voice test set with Piper TTS (offline) -> ../voice_test/.
 Writes clean clips plus copies with white noise at 10 dB SNR, and manifest.json."""
-import json, os, random, struct, wave
+import json
+import os
+import random
+import struct
+import wave
+
 from piper import PiperVoice
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -20,7 +25,7 @@ CASES = [
     ("go to mid jem", "go_to", "mid_jem"),
     ("fly to the middle of jem", "go_to", "mid_jem"),
     ("move to center of jem", "go_to", "mid_jem"),
-    ("move to kibo", None, None),            # typed-only alias; voice must reject
+    ("move to kibo", None, None),  # typed-only alias; voice must reject
     ("go to rack alpha", "go_to", "rack_one"),
     ("fly to rack bravo", "go_to", "rack_two"),
     ("go to rack charlie", "go_to", "rack_three"),
@@ -38,7 +43,7 @@ CASES = [
     ("what time is it", None, None),
     ("turn on the lights", None, None),
     ("photograph rack four", None, None),
-    ("photograph rack one", None, None),     # numbered racks are typed-only now
+    ("photograph rack one", None, None),  # numbered racks are typed-only now
     ("fly to rack three", None, None),
 ]
 
@@ -60,7 +65,9 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     manifest = []
     for v in VOICES:
-        voice = PiperVoice.load(os.path.join(HERE, "..", "models", "piper", v + ".onnx"))
+        voice = PiperVoice.load(
+            os.path.join(HERE, "..", "models", "piper", v + ".onnx")
+        )
         for i, (text, act, tgt) in enumerate(CASES):
             base = "%s_%02d" % (v.split("-")[1], i)
             clean = os.path.join(OUT, base + "_clean.wav")
@@ -69,8 +76,16 @@ def main():
             noisy = os.path.join(OUT, base + "_snr10.wav")
             add_noise(clean, noisy, 10.0, seed=i)
             for path, cond in ((clean, "clean"), (noisy, "snr10")):
-                manifest.append({"wav": os.path.basename(path), "text": text, "voice": v,
-                                 "cond": cond, "action": act, "target": tgt})
+                manifest.append(
+                    {
+                        "wav": os.path.basename(path),
+                        "text": text,
+                        "voice": v,
+                        "cond": cond,
+                        "action": act,
+                        "target": tgt,
+                    }
+                )
     json.dump(manifest, open(os.path.join(OUT, "manifest.json"), "w"), indent=1)
     print("wrote %d clips" % len(manifest))
 

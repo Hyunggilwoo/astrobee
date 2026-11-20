@@ -1,0 +1,28 @@
+# ROS 2 Jazzy client image for the HCI bridge.
+# Does not contain NASA flight software. Messages are the hci_ff_msgs copies.
+FROM ros:jazzy-ros-base
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential \
+      cmake \
+      python3-colcon-common-extensions \
+      ros-jazzy-ament-cmake \
+      ros-jazzy-rosidl-default-generators \
+      ros-jazzy-rosidl-default-runtime \
+      ros-jazzy-std-msgs \
+      ros-jazzy-geometry-msgs \
+      ros-jazzy-sensor-msgs \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY ros2/hci_ff_msgs /opt/hci_ws/src/hci_ff_msgs
+RUN . /opt/ros/jazzy/setup.sh \
+    && cd /opt/hci_ws \
+    && colcon build --packages-select hci_ff_msgs --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+COPY crew_assist /opt/hci/crew_assist
+COPY ros2 /opt/hci/ros2
+RUN chmod a+x /opt/hci/ros2/scripts/*.sh /opt/hci/ros2/scripts/*.py
+
+ENTRYPOINT ["/opt/hci/ros2/scripts/entrypoint.sh"]
+CMD ["relay2"]
