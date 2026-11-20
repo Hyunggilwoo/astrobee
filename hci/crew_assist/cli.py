@@ -2,7 +2,8 @@
 """Typed crew-assist command loop.
 
   python3 cli.py --mock                 # no ROS needed
-  python3 cli.py                        # against a running sim (sourced workspace)
+  python3 cli.py                        # ROS 1, against a running sim
+  python3 cli.py --backend ros2         # ROS 2 Jazzy, through the HCI bridge
   python3 cli.py --mock -c "undock" -c "go to mid jem" -c "return to dock" --yes
 """
 from __future__ import annotations
@@ -21,9 +22,22 @@ from sequencer import Sequencer  # noqa: E402
 from session import CrewSession  # noqa: E402
 
 
+def _backend(args):
+    if args.mock and args.backend not in (None, "mock"):
+        raise SystemExit("--mock cannot be combined with --backend %s" % args.backend)
+    if args.mock or args.backend == "mock":
+        return ac.MockBackend(move_time_s=args.mock_move_time)
+    if args.backend == "ros2":
+        from ros2_backend import Ros2Backend
+        return Ros2Backend()
+    return ac.RosBackend()
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--mock", action="store_true", help="simulate acks; no ROS")
+    p.add_argument("--backend", choices=("ros1", "ros2", "mock"), default=None,
+                   help="ros1 (default on a Noetic shell), ros2 (Jazzy bridge), or mock")
     p.add_argument("--locations", default=os.path.join(HERE, "locations.yaml"))
     p.add_argument("-c", "--command", action="append", help="run these commands then exit")
     p.add_argument("--yes", action="store_true", help="do not ask before motion")
@@ -38,7 +52,7 @@ def main(argv=None) -> int:
 
     locs = load_locations(a.locations)
     parser = IntentParser(locs)
-    backend = ac.MockBackend(move_time_s=a.mock_move_time) if a.mock else ac.RosBackend()
+    backend = _backend(a)
     # Configure our own logger AFTER rospy.init_node (rospy rewires root logging).
     lg = logging.getLogger("crew_assist")
     lg.setLevel(logging.DEBUG if a.verbose else logging.INFO)

@@ -19,9 +19,9 @@ jobs:
 
       - name: Syntax-check shell and Python
         run: |
-          bash -n hci/up.sh hci/down.sh hci/smoke.sh hci/crew_assist/scripts/download_vosk_model.sh
-          bash -n hci/docker/scripts/*.sh
-          python -m compileall -q hci/crew_assist hci/docker/scripts/patch_nav_cam.py
+          bash -n hci/up.sh hci/down.sh hci/smoke.sh hci/smoke_ros2.sh hci/crew_assist/scripts/download_vosk_model.sh
+          bash -n hci/docker/scripts/*.sh hci/ros2/scripts/*.sh
+          python -m compileall -q hci/crew_assist hci/docker/scripts/patch_nav_cam.py hci/ros2/scripts
 
       - name: Mock-mode pytest
         working-directory: hci/crew_assist
