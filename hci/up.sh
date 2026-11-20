@@ -47,6 +47,7 @@ cat <<EOF
 
 Astrobee HCI is starting. Gazebo takes a few minutes the first time.
 
+  Phone UI   http://localhost:8090   (pairing code: docker compose logs phone)
   Web UI     http://localhost:8088
   noVNC      http://localhost:6080/vnc.html?autoconnect=1&resize=scale
   rosbridge  ws://localhost:9090

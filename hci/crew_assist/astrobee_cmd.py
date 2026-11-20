@@ -370,6 +370,8 @@ class RosBackend(Backend):
         with self._cv:
             self._acks.pop(cmd.cmd_id, None)
         self.pub.publish(self._to_msg(cmd))
+        if cmd.cmd_name == CMD_STOP_ALL_MOTION:
+            self.stop_published_at = time.time()
         deadline = t0 + timeout_s
         last_state = None
         abort_t = None
@@ -558,9 +560,7 @@ class MockBackend(Backend):
 
 
 # --- tiny dependency-free PNG writer (mono8 / rgb8 / bgr8) -------------------
-def save_image_msg(
-    width: int, height: int, encoding: str, step: int, data: bytes, out_path: str
-) -> None:
+def png_bytes(width: int, height: int, encoding: str, step: int, data: bytes) -> bytes:
     import struct
     import zlib
 
@@ -596,5 +596,12 @@ def save_image_msg(
         + chunk(b"IDAT", zlib.compress(bytes(raw), 6))
         + chunk(b"IEND", b"")
     )
-    with open(out_path, "wb") as f:
-        f.write(png)
+    return png
+
+
+def save_image_msg(
+    width: int, height: int, encoding: str, step: int, data: bytes, out_path: str
+) -> None:
+    png = png_bytes(width, height, encoding, step, data)
+    with open(out_path, "wb") as handle:
+        handle.write(png)

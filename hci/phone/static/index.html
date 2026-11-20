@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Astrobee phone</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div>
+      <p class="eyebrow">Personal sim · not a flight interface</p>
+      <h1>Astrobee</h1>
+    </div>
+    <p id="role">locked</p>
+  </header>
+
+  <section id="pair" class="sheet">
+    <h2>Pair this phone</h2>
+    <p>Type the code printed in the terminal when the stack started.</p>
+    <form id="pair-form">
+      <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-label="Pairing code">
+      <button type="submit">Connect</button>
+    </form>
+    <p id="pair-error" class="error"></p>
+  </section>
+
+  <main id="app" hidden>
+    <img id="cam" alt="Navigation camera">
+    <p id="status" class="status">Waiting for the robot.</p>
+    <p id="pose" class="pose">pose —</p>
+    <div class="grid">
+      <button type="button" data-command="undock">Undock</button>
+      <button type="button" data-command="go to rack alpha">Rack alpha</button>
+      <button type="button" data-command="go to rack bravo">Rack bravo</button>
+      <button type="button" data-command="go to rack charlie">Rack charlie</button>
+      <button type="button" data-command="go to mid jem">Mid JEM</button>
+      <button type="button" data-command="photograph rack alpha">Photograph alpha</button>
+      <button type="button" data-command="return to dock" class="wide">Return to dock</button>
+    </div>
+    <form id="typed">
+      <input id="typed-text" autocomplete="off" placeholder="or type a command" aria-label="Typed command">
+      <button type="submit">Preview</button>
+    </form>
+    <p class="hint">Motion waits for Confirm. STOP does not.</p>
+    <button type="button" id="talk">Hold to talk</button>
+    <p id="talk-note" class="hint"></p>
+  </main>
+
+  <section id="readback" class="sheet" hidden>
+    <h2>Read-back</h2>
+    <p id="heard"></p>
+    <div class="row">
+      <button type="button" id="cancel">Cancel</button>
+      <button type="button" id="confirm">Confirm</button>
+    </div>
+  </section>
+
+  <button type="button" id="stop">STOP</button>
+  <script src="app.js"></script>
+</body>
+</html>
