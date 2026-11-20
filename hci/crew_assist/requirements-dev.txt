@@ -1,0 +1,3 @@
+# Mock-mode tests. ROS, vosk, and sounddevice are not required.
+pytest>=7
+pyyaml>=5

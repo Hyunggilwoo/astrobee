@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Astrobee crew assist</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div>
+      <p class="eyebrow">Personal simulation · not a flight interface</p>
+      <h1>Astrobee crew assist</h1>
+    </div>
+    <p id="conn" class="conn">Connecting…</p>
+  </header>
+
+  <main>
+    <section class="stage" aria-label="Robot view">
+      <div class="cam-wrap">
+        <img id="cam" alt="Navigation camera">
+        <p id="cam-note">Waiting for the navigation camera.</p>
+      </div>
+      <dl class="pose">
+        <div><dt>x</dt><dd id="px">—</dd></div>
+        <div><dt>y</dt><dd id="py">—</dd></div>
+        <div><dt>z</dt><dd id="pz">—</dd></div>
+        <div><dt>quat</dt><dd id="pq">—</dd></div>
+      </dl>
+    </section>
+
+    <section class="drive" aria-label="Commands">
+      <div class="row">
+        <button type="button" data-command="undock" data-confirm="1">Undock</button>
+        <button type="button" data-command="go to rack alpha" data-confirm="1">Rack alpha</button>
+        <button type="button" data-command="go to rack bravo" data-confirm="1">Rack bravo</button>
+        <button type="button" data-command="go to rack charlie" data-confirm="1">Rack charlie</button>
+        <button type="button" data-command="return to dock" data-confirm="1">Return to dock</button>
+      </div>
+      <form id="typed">
+        <label for="typed-text">Other command</label>
+        <input id="typed-text" name="command" autocomplete="off" spellcheck="false"
+               placeholder="photograph rack bravo">
+        <button type="submit">Send</button>
+      </form>
+      <p id="status-line" class="status">Waiting for the crew node.</p>
+      <button type="button" id="stop" data-command="stop">STOP</button>
+      <p class="hint">STOP sends stopAllMotion immediately and drops anything still queued.
+        Return to dock moves to the approach point, then docks. It does not use autoReturn.</p>
+    </section>
+
+    <section class="logs">
+      <div>
+        <h2>Acks <span id="ack-count"></span></h2>
+        <ol id="acks"></ol>
+      </div>
+      <div>
+        <h2>Crew node</h2>
+        <ol id="echo"></ol>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>3D desktop (RViz / Gazebo client): <a id="novnc" href="http://localhost:6080/vnc.html?autoconnect=1&amp;resize=scale">noVNC</a>.
+      Commands are text to the crew_assist node, which publishes <code>ff_msgs/CommandStamped</code>
+      with an empty <code>cmd_origin</code> and frame <code>world</code>.</p>
+  </footer>
+
+  <script src="vendor/roslib.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

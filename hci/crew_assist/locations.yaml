@@ -1,0 +1,59 @@
+# Named poses in the ISS "world" frame (metres; quaternion x y z w).
+# Record real values in the sim with:  rosrun executive teleop_tool -get_pose
+#
+# Flags:
+#   goto_allowed: false -> never fly here with simpleMove6DOF (berths: use dock)
+#   verify: true        -> value taken from docs/examples, confirm in your sim
+#   todo: true          -> placeholder; the sequencer refuses it until filled in
+#   camera              -> image topic used by "photograph <name>"
+#   spoken              -> if present, the ONLY names offered to the voice grammar.
+#                          Racks are spoken as alpha/bravo/charlie because real
+#                          speech (Google Speech Commands) and TTS both swapped
+#                          "three" -> "two" in noise; numbers stay typed-only.
+
+frame: world
+locations:
+  berth1:
+    aliases: [berth 1, berth one, dock, the dock, home]
+    pos: [9.816, -9.806, 4.293]          # sim.launch default pose (JPM berth 1)
+    quat: [0.0, 0.0, 0.0, 1.0]
+    goto_allowed: false
+  dock_approach:
+    aliases: [dock approach, approach, approach point]
+    pos: [10.34, -9.51, 4.49]            # teleop doc example for berth 1
+    # teleop -att "-3.14 0 0 1" (axis-angle) -> quaternion below
+    quat: [0.0, 0.0, -0.9999996829318346, 0.0007963267107332633]
+    berth: 1
+  mid_jem:
+    aliases: [mid jem, middle of jem, jem, kibo, center of jem, centre of jem]
+    pos: [11.25, -6.59, 4.8]             # teleop example gives x y only; z=4.8 chosen
+    quat: [0.0, 0.0, 0.0, 1.0]
+    verified: 2026-11-18                 # flown repeatedly in the Docker sim
+  # Rack standoffs surveyed in the Docker sim 2026-11-18 (tools_survey.py; images in
+  # ../survey/). pos/quat = commanded target; recorded = loc/pose after arrival
+  # (x y z qx qy qz qw). All inside JEM keep-in #6, >=0.65 m from the wall they face,
+  # clear of keep-outs (checked by tests/test_zones.py against zones_iss.json).
+  rack_one:
+    aliases: [rack one, rack 1, first rack, dock end rack]   # typed
+    spoken: [rack alpha, alpha rack]                         # voice grammar uses ONLY these
+    pos: [11.3, -7.5, 4.85]              # faces +x wall (x=12.0), nearest the dock
+    quat: [0.0, 0.0, 0.0, 1.0]
+    recorded: [11.301, -7.513, 4.846, 0.0026, -0.0033, 0.018, 0.9998]
+    camera: hw/cam_nav
+    image: ../survey/c1_xplus_aft.png
+  rack_two:
+    aliases: [rack two, rack 2, second rack, opposite rack]
+    spoken: [rack bravo, bravo rack]
+    pos: [10.55, -6.6, 4.85]             # faces -x wall (x=9.86), yaw 180 deg
+    quat: [0.0, 0.0, 1.0, 0.0]
+    recorded: [10.554, -6.61, 4.849, 0.0003, -0.0002, 0.9998, 0.0182]
+    camera: hw/cam_nav
+    image: ../survey/c2_xminus_mid.png
+  rack_three:
+    aliases: [rack three, rack 3, third rack, far rack]
+    spoken: [rack charlie, charlie rack]
+    pos: [11.3, -4.2, 4.85]              # faces +x wall, far end from the dock
+    quat: [0.0, 0.0, 0.0, 1.0]
+    recorded: [11.316, -4.21, 4.853, -0.0013, 0.0074, 0.0134, 0.9999]
+    camera: hw/cam_nav
+    image: ../survey/c4_xplus_fwd.png
