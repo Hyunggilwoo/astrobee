@@ -3,14 +3,14 @@ import os
 import threading
 import time
 
-import pytest
-
 import astrobee_cmd as ac
 import bridge_codec as codec
+import pytest
 from ros2_backend import Ros2Backend
 
-MSG_DIR = os.path.normpath(os.path.join(
-    os.path.dirname(__file__), "..", "..", "ros2", "hci_ff_msgs", "msg"))
+MSG_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "ros2", "hci_ff_msgs", "msg")
+)
 
 
 def test_command_roundtrip_keeps_origin_empty_and_world_frame():
@@ -49,7 +49,9 @@ def test_frames_reassemble_a_split_command():
 
 
 def test_pose_and_image_roundtrip():
-    pos, quat = codec.pose_from_dict(codec.pose_to_dict([9.816, -9.806, 4.293], [0, 0, 0, 1]))
+    pos, quat = codec.pose_from_dict(
+        codec.pose_to_dict([9.816, -9.806, 4.293], [0, 0, 0, 1])
+    )
     assert pos == pytest.approx([9.816, -9.806, 4.293])
     assert quat == pytest.approx([0, 0, 0, 1])
     raw = codec.image_to_dict(2, 2, "mono8", 2, b"\x00\x10\x20\x30")
@@ -67,10 +69,22 @@ def test_ros2_msg_files_have_the_codec_fields():
 
 
 def test_latency_summary():
-    summary = codec.summarize_latency([
-        {"cmd_bridge_ms": 1.0, "ack_bridge_ms": 2.0, "round_trip_bridge_ms": 3.0, "wall_ms": 30000.0},
-        {"cmd_bridge_ms": 3.0, "ack_bridge_ms": 4.0, "round_trip_bridge_ms": 7.0, "wall_ms": 40000.0},
-    ])
+    summary = codec.summarize_latency(
+        [
+            {
+                "cmd_bridge_ms": 1.0,
+                "ack_bridge_ms": 2.0,
+                "round_trip_bridge_ms": 3.0,
+                "wall_ms": 30000.0,
+            },
+            {
+                "cmd_bridge_ms": 3.0,
+                "ack_bridge_ms": 4.0,
+                "round_trip_bridge_ms": 7.0,
+                "wall_ms": 40000.0,
+            },
+        ]
+    )
     assert summary["count"] == 2
     assert summary["mean_round_trip_bridge_ms"] == pytest.approx(5.0)
     assert summary["mean_wall_ms"] == pytest.approx(35000.0)
@@ -167,5 +181,6 @@ def test_stop_during_a_move_does_not_wait_for_the_move_ack():
 
 def test_cli_rejects_mock_mixed_with_ros2():
     import cli
+
     with pytest.raises(SystemExit):
         cli.main(["--mock", "--backend", "ros2", "-c", "undock"])

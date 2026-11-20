@@ -16,9 +16,12 @@ def main() -> int:
     timeout_s = float(sys.argv[1]) if len(sys.argv) > 1 else 120.0
     rclpy.init()
     node = rclpy.create_node("hci_wait_bridge")
-    qos = QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
-                     durability=DurabilityPolicy.TRANSIENT_LOCAL,
-                     history=HistoryPolicy.KEEP_LAST, depth=1)
+    qos = QoSProfile(
+        reliability=ReliabilityPolicy.RELIABLE,
+        durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        history=HistoryPolicy.KEEP_LAST,
+        depth=1,
+    )
     state = {"ok": False}
 
     def on_ready(msg) -> None:

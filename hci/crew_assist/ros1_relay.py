@@ -37,8 +37,20 @@ class Relay:
         self._lock = threading.Lock()
         self._next_pose = 0.0
         rospy.Subscriber("mgt/ack", AckStamped, self._on_ack, queue_size=50)
-        rospy.Subscriber("loc/truth/pose", PoseStamped, self._on_pose, callback_args=codec.TOPIC_TRUTH, queue_size=1)
-        rospy.Subscriber("loc/pose", PoseStamped, self._on_pose, callback_args=codec.TOPIC_POSE, queue_size=1)
+        rospy.Subscriber(
+            "loc/truth/pose",
+            PoseStamped,
+            self._on_pose,
+            callback_args=codec.TOPIC_TRUTH,
+            queue_size=1,
+        )
+        rospy.Subscriber(
+            "loc/pose",
+            PoseStamped,
+            self._on_pose,
+            callback_args=codec.TOPIC_POSE,
+            queue_size=1,
+        )
         rospy.Subscriber("hw/cam_nav", Image, self._on_image, queue_size=1)
         self._status_timer = rospy.Timer(rospy.Duration(1.0), self._status)
 
@@ -56,21 +68,26 @@ class Relay:
                 sock.close()
 
     def _on_ack(self, msg) -> None:
-        self._send({
-            "op": "forward",
-            "topic": codec.TOPIC_ACK,
-            "t_send": time.time(),
-            "msg": {
-                "header": {
-                    "stamp": {"sec": int(msg.header.stamp.secs), "nanosec": int(msg.header.stamp.nsecs)},
-                    "frame_id": msg.header.frame_id,
+        self._send(
+            {
+                "op": "forward",
+                "topic": codec.TOPIC_ACK,
+                "t_send": time.time(),
+                "msg": {
+                    "header": {
+                        "stamp": {
+                            "sec": int(msg.header.stamp.secs),
+                            "nanosec": int(msg.header.stamp.nsecs),
+                        },
+                        "frame_id": msg.header.frame_id,
+                    },
+                    "cmd_id": msg.cmd_id,
+                    "status": {"status": int(msg.status.status)},
+                    "completed_status": {"status": int(msg.completed_status.status)},
+                    "message": msg.message,
                 },
-                "cmd_id": msg.cmd_id,
-                "status": {"status": int(msg.status.status)},
-                "completed_status": {"status": int(msg.completed_status.status)},
-                "message": msg.message,
-            },
-        })
+            }
+        )
 
     def _on_pose(self, msg, topic: str) -> None:
         now = time.time()
@@ -83,28 +100,42 @@ class Relay:
         else:
             self._next_loc = now + 0.2
         p, o = msg.pose.position, msg.pose.orientation
-        self._send({
-            "op": "forward",
-            "topic": topic,
-            "t_send": now,
-            "msg": codec.pose_to_dict([p.x, p.y, p.z], [o.x, o.y, o.z, o.w], msg.header.frame_id),
-        })
+        self._send(
+            {
+                "op": "forward",
+                "topic": topic,
+                "t_send": now,
+                "msg": codec.pose_to_dict(
+                    [p.x, p.y, p.z], [o.x, o.y, o.z, o.w], msg.header.frame_id
+                ),
+            }
+        )
 
     def _on_image(self, msg) -> None:
-        self._send({
-            "op": "forward",
-            "topic": codec.TOPIC_IMAGE,
-            "t_send": time.time(),
-            "msg": codec.image_to_dict(
-                msg.width, msg.height, msg.encoding, msg.step, bytes(msg.data), msg.header.frame_id),
-        })
+        self._send(
+            {
+                "op": "forward",
+                "topic": codec.TOPIC_IMAGE,
+                "t_send": time.time(),
+                "msg": codec.image_to_dict(
+                    msg.width,
+                    msg.height,
+                    msg.encoding,
+                    msg.step,
+                    bytes(msg.data),
+                    msg.header.frame_id,
+                ),
+            }
+        )
 
     def _status(self, _evt=None) -> None:
-        self._send({
-            "op": "status",
-            "t_send": time.time(),
-            "command_subscribers": int(self.pub.get_num_connections()),
-        })
+        self._send(
+            {
+                "op": "status",
+                "t_send": time.time(),
+                "command_subscribers": int(self.pub.get_num_connections()),
+            }
+        )
 
     def handle_client(self, sock: socket.socket) -> None:
         buf = codec.FrameBuffer()
@@ -150,13 +181,20 @@ class Relay:
             arg.mat33f = [float(v) for v in item["mat33f"]]
             msg.args.append(arg)
         self.pub.publish(msg)
-        self._send({
-            "op": "stat",
-            "cmd_id": raw["cmd_id"],
-            "cmd_bridge_ms": (time.time() - t_send) * 1000.0,
-        })
-        log.info("bridged %s id=%s origin=%r frame-arg-present=%s",
-                 raw["cmd_name"], raw["cmd_id"], raw["cmd_origin"], bool(raw.get("args")))
+        self._send(
+            {
+                "op": "stat",
+                "cmd_id": raw["cmd_id"],
+                "cmd_bridge_ms": (time.time() - t_send) * 1000.0,
+            }
+        )
+        log.info(
+            "bridged %s id=%s origin=%r frame-arg-present=%s",
+            raw["cmd_name"],
+            raw["cmd_id"],
+            raw["cmd_origin"],
+            bool(raw.get("args")),
+        )
 
     def serve(self) -> None:
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -176,12 +214,16 @@ class Relay:
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             with self._lock:
                 self._clients.append(sock)
-            threading.Thread(target=self.handle_client, args=(sock,), daemon=True).start()
+            threading.Thread(
+                target=self.handle_client, args=(sock,), daemon=True
+            ).start()
             self._status()
 
 
 def main() -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
     relay = Relay()
     try:
         relay.serve()
@@ -192,4 +234,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

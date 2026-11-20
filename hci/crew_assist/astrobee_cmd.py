@@ -50,8 +50,13 @@ DATA_TYPE_MAT33f = 7
 ACK_QUEUED, ACK_EXECUTING, ACK_REQUEUED, ACK_COMPLETED = 0, 1, 2, 3
 # --- AckCompletedStatus.msg -------------------------------------------------
 NOT, OK, BAD_SYNTAX, EXEC_FAILED, CANCELED = 0, 1, 2, 3, 4
-COMPLETED_NAMES = {NOT: "NOT", OK: "OK", BAD_SYNTAX: "BAD_SYNTAX",
-                   EXEC_FAILED: "EXEC_FAILED", CANCELED: "CANCELED"}
+COMPLETED_NAMES = {
+    NOT: "NOT",
+    OK: "OK",
+    BAD_SYNTAX: "BAD_SYNTAX",
+    EXEC_FAILED: "EXEC_FAILED",
+    CANCELED: "CANCELED",
+}
 TIMEOUT = -1  # local pseudo-status: no final ack before the deadline
 
 CMD_SRC = "guest_science"
@@ -79,7 +84,7 @@ class Command:
 @dataclass
 class AckResult:
     cmd_id: str
-    completed: int          # AckCompletedStatus value or TIMEOUT
+    completed: int  # AckCompletedStatus value or TIMEOUT
     message: str = ""
     elapsed_s: float = 0.0
 
@@ -89,12 +94,17 @@ class AckResult:
 
     @property
     def name(self) -> str:
-        return "TIMEOUT" if self.completed == TIMEOUT else COMPLETED_NAMES.get(
-            self.completed, str(self.completed))
+        return (
+            "TIMEOUT"
+            if self.completed == TIMEOUT
+            else COMPLETED_NAMES.get(self.completed, str(self.completed))
+        )
 
 
 # --- geometry helpers ---------------------------------------------------------
-def axis_angle_to_quat(angle: float, axis: Sequence[float]) -> Tuple[float, float, float, float]:
+def axis_angle_to_quat(
+    angle: float, axis: Sequence[float]
+) -> Tuple[float, float, float, float]:
     """teleop_tool -att "angle ax ay az" -> (x, y, z, w), like Eigen::AngleAxisd.
 
     Eigen does not normalise the axis inside Quaterniond(AngleAxisd); we
@@ -140,8 +150,9 @@ def build_stop() -> Command:
     return Command(CMD_STOP_ALL_MOTION, new_cmd_id(CMD_STOP_ALL_MOTION))
 
 
-def build_simple_move(pos: Sequence[float], quat: Sequence[float],
-                      frame: str = "world") -> Command:
+def build_simple_move(
+    pos: Sequence[float], quat: Sequence[float], frame: str = "world"
+) -> Command:
     """args: [0] frame string, [1] xyz vec3d, [2] tolerance vec3d (unused, 0),
     [3] mat33f with quaternion x,y,z,w in the first four slots, rest 0.
     Frame: "world" (absolute, as teleop/simple_move send) or "body" (relative).
@@ -150,20 +161,27 @@ def build_simple_move(pos: Sequence[float], quat: Sequence[float],
         raise ValueError("pos needs x y z")
     q = normalize_quat(quat)
     mat = [float(q[0]), float(q[1]), float(q[2]), float(q[3]), 0.0, 0.0, 0.0, 0.0, 0.0]
-    return Command(CMD_SIMPLE_MOVE6DOF, new_cmd_id(CMD_SIMPLE_MOVE6DOF), [
-        Arg(DATA_TYPE_STRING, frame),
-        Arg(DATA_TYPE_VEC3d, [float(v) for v in pos]),
-        Arg(DATA_TYPE_VEC3d, [0.0, 0.0, 0.0]),
-        Arg(DATA_TYPE_MAT33f, mat),
-    ])
+    return Command(
+        CMD_SIMPLE_MOVE6DOF,
+        new_cmd_id(CMD_SIMPLE_MOVE6DOF),
+        [
+            Arg(DATA_TYPE_STRING, frame),
+            Arg(DATA_TYPE_VEC3d, [float(v) for v in pos]),
+            Arg(DATA_TYPE_VEC3d, [0.0, 0.0, 0.0]),
+            Arg(DATA_TYPE_MAT33f, mat),
+        ],
+    )
 
 
 def build_set_camera_streaming(camera: str, enable: bool) -> Command:
     """executive.cc SetCameraStreaming: args [string camera, bool enable]."""
     if camera not in CAMERA_NAMES:
         raise ValueError("camera must be one of %s" % (CAMERA_NAMES,))
-    return Command(CMD_SET_CAMERA_STREAMING, new_cmd_id(CMD_SET_CAMERA_STREAMING),
-                   [Arg(DATA_TYPE_STRING, camera), Arg(DATA_TYPE_BOOL, bool(enable))])
+    return Command(
+        CMD_SET_CAMERA_STREAMING,
+        new_cmd_id(CMD_SET_CAMERA_STREAMING),
+        [Arg(DATA_TYPE_STRING, camera), Arg(DATA_TYPE_BOOL, bool(enable))],
+    )
 
 
 # --- backends ---------------------------------------------------------------
@@ -173,7 +191,9 @@ class Backend:
     def execute(self, cmd: Command, timeout_s: float) -> AckResult:  # pragma: no cover
         raise NotImplementedError
 
-    def grab_image(self, topic: str, out_path: str, timeout_s: float) -> bool:  # pragma: no cover
+    def grab_image(
+        self, topic: str, out_path: str, timeout_s: float
+    ) -> bool:  # pragma: no cover
         raise NotImplementedError
 
     def current_pose(self) -> Optional[Tuple[List[float], List[float]]]:
@@ -191,11 +211,15 @@ class AstrobeeCommander:
         `clear_abort()` (called at the start of each new intent).
     """
 
-    def __init__(self, backend: Backend, stop_timeout_s: float = 15.0,
-                 abort_grace_s: float = 10.0):
+    def __init__(
+        self,
+        backend: Backend,
+        stop_timeout_s: float = 15.0,
+        abort_grace_s: float = 10.0,
+    ):
         self.backend = backend
         self.stop_timeout_s = stop_timeout_s
-        self._lock = threading.Lock()        # serialises normal commands
+        self._lock = threading.Lock()  # serialises normal commands
         self._hist_lock = threading.Lock()
         self.abort_event = threading.Event()
         backend.abort_event = self.abort_event
@@ -216,11 +240,21 @@ class AstrobeeCommander:
                 log.info("SKIP %s (stop requested)", cmd.cmd_name)
                 self._record(cmd, res)
                 return res
-            log.info("SEND %s id=%s args=%s", cmd.cmd_name, cmd.cmd_id,
-                     [(a.data_type, a.value) for a in cmd.args])
+            log.info(
+                "SEND %s id=%s args=%s",
+                cmd.cmd_name,
+                cmd.cmd_id,
+                [(a.data_type, a.value) for a in cmd.args],
+            )
             res = self.backend.execute(cmd, timeout_s)
-            log.info("ACK  %s id=%s -> %s %s (%.1fs)", cmd.cmd_name, cmd.cmd_id,
-                     res.name, res.message, res.elapsed_s)
+            log.info(
+                "ACK  %s id=%s -> %s %s (%.1fs)",
+                cmd.cmd_name,
+                cmd.cmd_id,
+                res.name,
+                res.message,
+                res.elapsed_s,
+            )
             self._record(cmd, res)
             if res.completed == TIMEOUT and not self.abort_event.is_set():
                 log.warning("timeout on %s -> sending stopAllMotion", cmd.cmd_name)
@@ -231,8 +265,13 @@ class AstrobeeCommander:
         stop = build_stop()
         log.info("SEND stopAllMotion id=%s", stop.cmd_id)
         res = self.backend.execute(stop, self.stop_timeout_s)
-        log.info("ACK  stopAllMotion id=%s -> %s %s (%.1fs)", stop.cmd_id, res.name,
-                 res.message, res.elapsed_s)
+        log.info(
+            "ACK  stopAllMotion id=%s -> %s %s (%.1fs)",
+            stop.cmd_id,
+            res.name,
+            res.message,
+            res.elapsed_s,
+        )
         self._record(stop, res)
         return res
 
@@ -245,17 +284,25 @@ class AstrobeeCommander:
 class RosBackend(Backend):
     """Real backend. Topic names are relative so `ROS_NAMESPACE=honey` works."""
 
-    def __init__(self, node_name: str = "crew_assist", connect_timeout_s: float = 10.0,
-                 disable_signals: bool = True, anonymous: bool = True):
+    def __init__(
+        self,
+        node_name: str = "crew_assist",
+        connect_timeout_s: float = 10.0,
+        disable_signals: bool = True,
+        anonymous: bool = True,
+    ):
         import rospy  # noqa: deferred so mock mode needs no ROS
         from ff_msgs.msg import AckStamped, CommandStamped
+
         self.rospy = rospy
         self.CommandStamped = CommandStamped
         if not rospy.core.is_initialized():
             # disable_signals stays True for the CLI, which treats Ctrl-C as
             # stopAllMotion instead of process death. The long-running ROS node
             # passes False so docker stop / Ctrl-C can shut the process down.
-            rospy.init_node(node_name, anonymous=anonymous, disable_signals=disable_signals)
+            rospy.init_node(
+                node_name, anonymous=anonymous, disable_signals=disable_signals
+            )
         self._acks: Dict[str, Any] = {}
         self._cv = threading.Condition()
         self.pub = rospy.Publisher("command", CommandStamped, queue_size=10)
@@ -268,6 +315,7 @@ class RosBackend(Backend):
         self._pose = None
         try:
             from geometry_msgs.msg import PoseStamped
+
             rospy.Subscriber("loc/pose", PoseStamped, self._on_pose, queue_size=1)
         except Exception:  # pragma: no cover
             pass
@@ -286,10 +334,15 @@ class RosBackend(Backend):
 
     def _to_msg(self, cmd: Command):
         from ff_msgs.msg import CommandArg
+
         m = self.CommandStamped()
         m.header.stamp = self.rospy.Time.now()
         m.cmd_name, m.cmd_id = cmd.cmd_name, cmd.cmd_id
-        m.cmd_src, m.cmd_origin, m.subsys_name = cmd.cmd_src, cmd.cmd_origin, cmd.subsys_name
+        m.cmd_src, m.cmd_origin, m.subsys_name = (
+            cmd.cmd_src,
+            cmd.cmd_origin,
+            cmd.subsys_name,
+        )
         for a in cmd.args:
             ca = CommandArg()
             ca.data_type = a.data_type
@@ -326,34 +379,58 @@ class RosBackend(Backend):
                 if ack is not None:
                     state = (ack.status.status, ack.completed_status.status)
                     if state != last_state:
-                        log.debug("ack %s status=%d completed=%d %s", cmd.cmd_id,
-                                  state[0], state[1], ack.message)
+                        log.debug(
+                            "ack %s status=%d completed=%d %s",
+                            cmd.cmd_id,
+                            state[0],
+                            state[1],
+                            ack.message,
+                        )
                         last_state = state
                     # NOT (0) means still in progress; anything else is final.
                     if ack.completed_status.status != NOT:
-                        return AckResult(cmd.cmd_id, ack.completed_status.status,
-                                         ack.message, time.time() - t0)
+                        return AckResult(
+                            cmd.cmd_id,
+                            ack.completed_status.status,
+                            ack.message,
+                            time.time() - t0,
+                        )
                 ab = getattr(self, "abort_event", None)
-                if ab is not None and ab.is_set() and cmd.cmd_name != CMD_STOP_ALL_MOTION:
+                if (
+                    ab is not None
+                    and ab.is_set()
+                    and cmd.cmd_name != CMD_STOP_ALL_MOTION
+                ):
                     if abort_t is None:
                         abort_t = time.time()
                     elif time.time() - abort_t > getattr(self, "abort_grace_s", 10.0):
-                        return AckResult(cmd.cmd_id, CANCELED, "no ack after stop; "
-                                         "abandoned locally", time.time() - t0)
+                        return AckResult(
+                            cmd.cmd_id,
+                            CANCELED,
+                            "no ack after stop; " "abandoned locally",
+                            time.time() - t0,
+                        )
                 remaining = deadline - time.time()
                 if remaining <= 0 or self.rospy.is_shutdown():
-                    return AckResult(cmd.cmd_id, TIMEOUT, "no final ack in %.0fs" % timeout_s,
-                                     time.time() - t0)
+                    return AckResult(
+                        cmd.cmd_id,
+                        TIMEOUT,
+                        "no final ack in %.0fs" % timeout_s,
+                        time.time() - t0,
+                    )
                 self._cv.wait(min(remaining, 0.5))
 
     def grab_image(self, topic: str, out_path: str, timeout_s: float) -> bool:
         from sensor_msgs.msg import Image
+
         try:
             msg = self.rospy.wait_for_message(topic, Image, timeout=timeout_s)
         except Exception as e:  # ROSException on timeout
             log.warning("no image on %s within %.0fs: %s", topic, timeout_s, e)
             return False
-        save_image_msg(msg.width, msg.height, msg.encoding, msg.step, bytes(msg.data), out_path)
+        save_image_msg(
+            msg.width, msg.height, msg.encoding, msg.step, bytes(msg.data), out_path
+        )
         return True
 
 
@@ -364,11 +441,19 @@ class MockBackend(Backend):
     docked", dock only from near the approach point, configurable per-command
     failures or hangs (to test timeout -> stopAllMotion)."""
 
-    def __init__(self, start_pose=None, approach_pos=(10.34, -9.51, 4.49),
-                 fail: Optional[Dict[str, int]] = None, hang: Sequence[str] = (),
-                 latency_s: float = 0.0, move_time_s: float = 0.0):
+    def __init__(
+        self,
+        start_pose=None,
+        approach_pos=(10.34, -9.51, 4.49),
+        fail: Optional[Dict[str, int]] = None,
+        hang: Sequence[str] = (),
+        latency_s: float = 0.0,
+        move_time_s: float = 0.0,
+    ):
         self.docked = True
-        self.move_time_s = move_time_s     # >0: moves/undock/dock take this long, stop cancels
+        self.move_time_s = (
+            move_time_s  # >0: moves/undock/dock take this long, stop cancels
+        )
         self.moving = threading.Event()
         self._cancel = threading.Event()
         self._sent_lock = threading.Lock()
@@ -392,7 +477,9 @@ class MockBackend(Backend):
         self.moving.set()
         try:
             if self._cancel.wait(self.move_time_s):
-                return AckResult(cmd.cmd_id, CANCELED, "mock: canceled by stopAllMotion")
+                return AckResult(
+                    cmd.cmd_id, CANCELED, "mock: canceled by stopAllMotion"
+                )
         finally:
             self.moving.clear()
         return None
@@ -403,8 +490,11 @@ class MockBackend(Backend):
         if self.latency_s:
             time.sleep(self.latency_s)
         n = cmd.cmd_name
-        if n in (CMD_UNDOCK, CMD_SIMPLE_MOVE6DOF, CMD_DOCK) and n not in self.hang \
-                and n not in self.fail:
+        if (
+            n in (CMD_UNDOCK, CMD_SIMPLE_MOVE6DOF, CMD_DOCK)
+            and n not in self.hang
+            and n not in self.fail
+        ):
             canceled = self._travel(cmd)
             if canceled is not None:
                 if n == CMD_UNDOCK:
@@ -423,11 +513,15 @@ class MockBackend(Backend):
         if n == CMD_STOP_ALL_MOTION:
             self._cancel.set()
             if self.docked:
-                return AckResult(cmd.cmd_id, EXEC_FAILED, "Astrobee cannot stop while docked.")
+                return AckResult(
+                    cmd.cmd_id, EXEC_FAILED, "Astrobee cannot stop while docked."
+                )
             return AckResult(cmd.cmd_id, OK)
         if n == CMD_SIMPLE_MOVE6DOF:
             if self.docked:
-                return AckResult(cmd.cmd_id, EXEC_FAILED, "Astrobee cannot move while docked.")
+                return AckResult(
+                    cmd.cmd_id, EXEC_FAILED, "Astrobee cannot move while docked."
+                )
             if len(cmd.args) != 4 or cmd.args[3].data_type != DATA_TYPE_MAT33f:
                 return AckResult(cmd.cmd_id, BAD_SYNTAX, "Malformed arguments")
             self.pos = list(cmd.args[1].value)
@@ -436,10 +530,17 @@ class MockBackend(Backend):
         if n == CMD_DOCK:
             if self.docked:
                 return AckResult(cmd.cmd_id, EXEC_FAILED, "Already docked.")
-            d = math.dist(self.pos, self.approach_pos) if hasattr(math, "dist") else \
-                math.sqrt(sum((a - b) ** 2 for a, b in zip(self.pos, self.approach_pos)))
+            d = (
+                math.dist(self.pos, self.approach_pos)
+                if hasattr(math, "dist")
+                else math.sqrt(
+                    sum((a - b) ** 2 for a, b in zip(self.pos, self.approach_pos))
+                )
+            )
             if d > 0.5:
-                return AckResult(cmd.cmd_id, EXEC_FAILED, "Not near dock approach point.")
+                return AckResult(
+                    cmd.cmd_id, EXEC_FAILED, "Not near dock approach point."
+                )
             self.docked = True
             self.pos = [9.816, -9.806, 4.293]
             return AckResult(cmd.cmd_id, OK)
@@ -457,10 +558,12 @@ class MockBackend(Backend):
 
 
 # --- tiny dependency-free PNG writer (mono8 / rgb8 / bgr8) -------------------
-def save_image_msg(width: int, height: int, encoding: str, step: int, data: bytes,
-                   out_path: str) -> None:
+def save_image_msg(
+    width: int, height: int, encoding: str, step: int, data: bytes, out_path: str
+) -> None:
     import struct
     import zlib
+
     enc = encoding.lower()
     if enc in ("mono8", "8uc1"):
         ch, ctype = 1, 0
@@ -470,15 +573,28 @@ def save_image_msg(width: int, height: int, encoding: str, step: int, data: byte
         raise ValueError("unsupported encoding %s" % encoding)
     raw = bytearray()
     for r in range(height):
-        row = data[r * step: r * step + width * ch]
+        row = data[r * step : r * step + width * ch]
         if enc == "bgr8":
-            row = bytes(b for i in range(0, len(row), 3) for b in (row[i + 2], row[i + 1], row[i]))
+            row = bytes(
+                b
+                for i in range(0, len(row), 3)
+                for b in (row[i + 2], row[i + 1], row[i])
+            )
         raw += b"\x00" + row
 
     def chunk(t: bytes, d: bytes) -> bytes:
-        return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
+        return (
+            struct.pack(">I", len(d))
+            + t
+            + d
+            + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
+        )
 
-    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, ctype, 0, 0, 0)) \
-        + chunk(b"IDAT", zlib.compress(bytes(raw), 6)) + chunk(b"IEND", b"")
+    png = (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, ctype, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(bytes(raw), 6))
+        + chunk(b"IEND", b"")
+    )
     with open(out_path, "wb") as f:
         f.write(png)

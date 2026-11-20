@@ -14,7 +14,9 @@ def _load():
 
 def test_patch_changes_only_nav_cam_rate():
     module = _load()
-    original = open(os.path.join(ROOT, "astrobee", "config", "simulation", "simulation.config")).read()
+    original = open(
+        os.path.join(ROOT, "astrobee", "config", "simulation", "simulation.config")
+    ).read()
     assert "nav_cam_rate   = 0.0;" in original
     patched = module.patch_text(original, "2.0")
     assert "nav_cam_rate   = 2.0;" in patched

@@ -28,8 +28,18 @@ class Ros2Relay:
     def __init__(self) -> None:
         import rclpy
         from geometry_msgs.msg import PoseStamped
-        from hci_ff_msgs.msg import AckCompletedStatus, AckStamped, AckStatus, CommandStamped
-        from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
+        from hci_ff_msgs.msg import (
+            AckCompletedStatus,
+            AckStamped,
+            AckStatus,
+            CommandStamped,
+        )
+        from rclpy.qos import (
+            DurabilityPolicy,
+            HistoryPolicy,
+            QoSProfile,
+            ReliabilityPolicy,
+        )
         from sensor_msgs.msg import Image
         from std_msgs.msg import Bool
 
@@ -42,17 +52,25 @@ class Ros2Relay:
         if not rclpy.ok():
             rclpy.init()
         self.node = rclpy.create_node("hci_ros2_relay")
-        qos = QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
-                         history=HistoryPolicy.KEEP_LAST, depth=10)
-        ready_qos = QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
-                               durability=DurabilityPolicy.TRANSIENT_LOCAL,
-                               history=HistoryPolicy.KEEP_LAST, depth=1)
+        qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10,
+        )
+        ready_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
         self.ack_pub = self.node.create_publisher(AckStamped, codec.TOPIC_ACK, qos)
         self.truth_pub = self.node.create_publisher(PoseStamped, codec.TOPIC_TRUTH, qos)
         self.pose_pub = self.node.create_publisher(PoseStamped, codec.TOPIC_POSE, qos)
         self.image_pub = self.node.create_publisher(Image, codec.TOPIC_IMAGE, qos)
         self.ready_pub = self.node.create_publisher(Bool, codec.TOPIC_READY, ready_qos)
-        self.node.create_subscription(CommandStamped, codec.TOPIC_COMMAND, self._on_command, qos)
+        self.node.create_subscription(
+            CommandStamped, codec.TOPIC_COMMAND, self._on_command, qos
+        )
         self._sock = None
         self._send_lock = threading.Lock()
         self._buf = codec.FrameBuffer()
@@ -63,6 +81,7 @@ class Ros2Relay:
 
     def _publish_ready(self, ready: bool) -> None:
         from std_msgs.msg import Bool
+
         if ready != self._ready:
             log.info("bridge ready=%s", ready)
         self._ready = ready
@@ -71,7 +90,10 @@ class Ros2Relay:
     def _on_command(self, msg) -> None:
         raw = {
             "header": {
-                "stamp": {"sec": int(msg.header.stamp.sec), "nanosec": int(msg.header.stamp.nanosec)},
+                "stamp": {
+                    "sec": int(msg.header.stamp.sec),
+                    "nanosec": int(msg.header.stamp.nanosec),
+                },
                 "frame_id": msg.header.frame_id,
             },
             "cmd_name": msg.cmd_name,
@@ -83,8 +105,14 @@ class Ros2Relay:
         }
         now = time.time()
         with self._lock:
-            self._pending[msg.cmd_id] = {"t_ros2": now, "cmd_name": msg.cmd_name, "cmd_bridge_ms": None}
-        self._send({"op": "forward", "topic": codec.TOPIC_COMMAND, "t_send": now, "msg": raw})
+            self._pending[msg.cmd_id] = {
+                "t_ros2": now,
+                "cmd_name": msg.cmd_name,
+                "cmd_bridge_ms": None,
+            }
+        self._send(
+            {"op": "forward", "topic": codec.TOPIC_COMMAND, "t_send": now, "msg": raw}
+        )
 
     def _send(self, obj: dict) -> None:
         frame = codec.encode_frame(obj)
@@ -155,8 +183,12 @@ class Ros2Relay:
         }
         with open(LOG_PATH, "a") as handle:
             handle.write(json.dumps(row) + "\n")
-        log.info("ack %s bridge round-trip %.2f ms, wall %.1f s",
-                 slot["cmd_name"], row["round_trip_bridge_ms"], wall_ms / 1000.0)
+        log.info(
+            "ack %s bridge round-trip %.2f ms, wall %.1f s",
+            slot["cmd_name"],
+            row["round_trip_bridge_ms"],
+            wall_ms / 1000.0,
+        )
 
     def run(self) -> None:
         host = os.environ.get("HCI_BRIDGE_HOST", codec.BRIDGE_HOST)
@@ -242,7 +274,9 @@ def _image_msg(cls, raw: dict):
 
 
 def main() -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
     relay = Ros2Relay()
     try:
         relay.run()
@@ -253,4 +287,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

@@ -24,21 +24,28 @@ class Ros2Backend(ac.Backend):
     def __init__(self, transport=None, connect_timeout_s: float = 60.0):
         self.abort_event = getattr(self, "abort_event", None)
         self.abort_grace_s = 10.0
-        self.transport = transport if transport is not None else RclpyTransport(connect_timeout_s)
+        self.transport = (
+            transport if transport is not None else RclpyTransport(connect_timeout_s)
+        )
         if transport is None and not self.transport.ready():
             raise RuntimeError(
-                "ros2 bridge is not ready: the ROS 1 executive is not subscribed to /command")
+                "ros2 bridge is not ready: the ROS 1 executive is not subscribed to /command"
+            )
 
     def execute(self, cmd: ac.Command, timeout_s: float) -> ac.AckResult:
         stop = cmd.cmd_name == ac.CMD_STOP_ALL_MOTION
         if not stop and not self.transport.ready():
-            return ac.AckResult(cmd.cmd_id, ac.EXEC_FAILED, "not sent: ros2 bridge down")
+            return ac.AckResult(
+                cmd.cmd_id, ac.EXEC_FAILED, "not sent: ros2 bridge down"
+            )
         t0 = time.time()
         try:
             self.transport.publish_command(codec.command_to_dict(cmd), t0)
         except Exception as exc:
             log.warning("publish %s failed: %s", cmd.cmd_name, exc)
-            return ac.AckResult(cmd.cmd_id, ac.EXEC_FAILED, "not sent: %s" % exc, time.time() - t0)
+            return ac.AckResult(
+                cmd.cmd_id, ac.EXEC_FAILED, "not sent: %s" % exc, time.time() - t0
+            )
         deadline = t0 + timeout_s
         abort_t = None
         while True:
@@ -56,12 +63,19 @@ class Ros2Backend(ac.Backend):
                     abort_t = time.time()
                 elif time.time() - abort_t > getattr(self, "abort_grace_s", 10.0):
                     return ac.AckResult(
-                        cmd.cmd_id, ac.CANCELED, "no ack after stop; abandoned locally",
-                        time.time() - t0)
+                        cmd.cmd_id,
+                        ac.CANCELED,
+                        "no ack after stop; abandoned locally",
+                        time.time() - t0,
+                    )
             remaining = deadline - time.time()
             if remaining <= 0:
                 return ac.AckResult(
-                    cmd.cmd_id, ac.TIMEOUT, "no final ack in %.0fs" % timeout_s, time.time() - t0)
+                    cmd.cmd_id,
+                    ac.TIMEOUT,
+                    "no final ack in %.0fs" % timeout_s,
+                    time.time() - t0,
+                )
             self.transport.wait(min(remaining, 0.2))
 
     def grab_image(self, topic: str, out_path: str, timeout_s: float) -> bool:
@@ -69,8 +83,14 @@ class Ros2Backend(ac.Backend):
         if raw is None:
             return False
         image = codec.image_from_dict(raw)
-        ac.save_image_msg(image["width"], image["height"], image["encoding"],
-                          image["step"], image["data"], out_path)
+        ac.save_image_msg(
+            image["width"],
+            image["height"],
+            image["encoding"],
+            image["step"],
+            image["data"],
+            out_path,
+        )
         return True
 
     def current_pose(self):
@@ -84,7 +104,12 @@ class RclpyTransport:
         import rclpy
         from geometry_msgs.msg import PoseStamped
         from hci_ff_msgs.msg import AckStamped, CommandArg, CommandStamped
-        from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
+        from rclpy.qos import (
+            DurabilityPolicy,
+            HistoryPolicy,
+            QoSProfile,
+            ReliabilityPolicy,
+        )
         from sensor_msgs.msg import Image
         from std_msgs.msg import Bool
 
@@ -110,12 +135,24 @@ class RclpyTransport:
         self._pose = None
         self._image = None
         self._ready = False
-        self.pub = self.node.create_publisher(CommandStamped, codec.TOPIC_COMMAND, self._qos)
-        self.node.create_subscription(AckStamped, codec.TOPIC_ACK, self._on_ack, self._qos)
-        self.node.create_subscription(PoseStamped, codec.TOPIC_TRUTH, self._on_pose, self._qos)
-        self.node.create_subscription(Image, codec.TOPIC_IMAGE, self._on_image, self._qos)
-        self.node.create_subscription(Bool, codec.TOPIC_READY, self._on_ready, ready_qos)
-        self._spin = threading.Thread(target=lambda: rclpy.spin(self.node), name="ros2-spin", daemon=True)
+        self.pub = self.node.create_publisher(
+            CommandStamped, codec.TOPIC_COMMAND, self._qos
+        )
+        self.node.create_subscription(
+            AckStamped, codec.TOPIC_ACK, self._on_ack, self._qos
+        )
+        self.node.create_subscription(
+            PoseStamped, codec.TOPIC_TRUTH, self._on_pose, self._qos
+        )
+        self.node.create_subscription(
+            Image, codec.TOPIC_IMAGE, self._on_image, self._qos
+        )
+        self.node.create_subscription(
+            Bool, codec.TOPIC_READY, self._on_ready, ready_qos
+        )
+        self._spin = threading.Thread(
+            target=lambda: rclpy.spin(self.node), name="ros2-spin", daemon=True
+        )
         self._spin.start()
         deadline = time.time() + connect_timeout_s
         while time.time() < deadline and not self.ready():
@@ -143,7 +180,13 @@ class RclpyTransport:
 
     def _on_image(self, msg) -> None:
         self._image = codec.image_to_dict(
-            msg.width, msg.height, msg.encoding, msg.step, bytes(msg.data), msg.header.frame_id)
+            msg.width,
+            msg.height,
+            msg.encoding,
+            msg.step,
+            bytes(msg.data),
+            msg.header.frame_id,
+        )
 
     def publish_command(self, msg_dict: dict, t_send: float) -> None:
         del t_send  # the relay stamps the envelope; the ROS message stays a pure command

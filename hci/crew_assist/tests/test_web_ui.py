@@ -2,8 +2,9 @@ import os
 
 from smoke_mission import STEPS
 
-WEB = os.path.normpath(os.path.join(
-    os.path.dirname(__file__), "..", "..", "docker", "web"))
+WEB = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "docker", "web")
+)
 
 
 def _read(name):
@@ -13,8 +14,13 @@ def _read(name):
 
 def test_page_exposes_the_sortie_buttons_and_stop():
     html = _read("index.html")
-    for phrase in ("undock", "go to rack alpha", "go to rack bravo",
-                   "go to rack charlie", "return to dock"):
+    for phrase in (
+        "undock",
+        "go to rack alpha",
+        "go to rack bravo",
+        "go to rack charlie",
+        "return to dock",
+    ):
         assert 'data-command="%s"' % phrase in html
         assert 'data-confirm="1"' in html
     assert 'id="stop"' in html

@@ -18,7 +18,7 @@
 # under the License.
 
 import fnmatch
-import importlib
+import importlib.machinery
 import os
 
 num_errors = 0

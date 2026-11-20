@@ -6,13 +6,12 @@ import json
 import os
 
 import pytest
-
 from intent_parser import load_locations
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOCS = load_locations(os.path.join(HERE, "locations.yaml"))
 ZONES = json.load(open(os.path.join(HERE, "zones_iss.json")))["zones"]
-HALF = 0.16 + 0.10   # half body size + 10 cm margin
+HALF = 0.16 + 0.10  # half body size + 10 cm margin
 
 
 def box(z):
@@ -30,10 +29,15 @@ def inside(p, b):
 
 
 def corners(p):
-    return [[c + d for c, d in zip(p, s)] for s in itertools.product((-HALF, HALF), repeat=3)]
+    return [
+        [c + d for c, d in zip(p, s)]
+        for s in itertools.product((-HALF, HALF), repeat=3)
+    ]
 
 
-FLYABLE = [n for n, l in LOCS.items() if l.get("goto_allowed", True) and not l.get("todo")]
+FLYABLE = [
+    n for n, l in LOCS.items() if l.get("goto_allowed", True) and not l.get("todo")
+]
 
 
 def test_zone_file_has_both_kinds():
@@ -44,7 +48,10 @@ def test_zone_file_has_both_kinds():
 def test_pose_in_keepin_and_clear_of_keepouts(name):
     p = LOCS[name]["pos"]
     for c in corners(p):
-        assert any(inside(c, b) for b in KEEPIN), "%s corner %s outside keep-in" % (name, c)
+        assert any(inside(c, b) for b in KEEPIN), "%s corner %s outside keep-in" % (
+            name,
+            c,
+        )
     for lo, hi in KEEPOUT:
         overlap = all(p[i] + HALF > lo[i] and p[i] - HALF < hi[i] for i in range(3))
         assert not overlap, "%s body overlaps keep-out %s..%s" % (name, lo, hi)

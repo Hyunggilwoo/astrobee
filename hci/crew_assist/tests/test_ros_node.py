@@ -20,8 +20,13 @@ def test_web_button_phrases_match_the_parser():
 
 def test_bridge_stop_preempts_and_status_counts():
     session, bridge = ros_node.make_runtime(
-        os.path.join(HERE, "locations.yaml"), True, False,
-        os.path.join(HERE, "images"), 1.0, 5.0)
+        os.path.join(HERE, "locations.yaml"),
+        True,
+        False,
+        os.path.join(HERE, "images"),
+        1.0,
+        5.0,
+    )
     session.cmd.backend.docked = False
     bridge.handle_text("go to rack alpha")
     backend = session.cmd.backend
@@ -43,11 +48,18 @@ def test_bridge_stop_preempts_and_status_counts():
 
 
 def test_mock_sortie_undock_rack_alpha_dock(tmp_path):
-    rc = ros_node.main([
-        "--mock", "--yes",
-        "-c", "undock",
-        "-c", "go to rack alpha",
-        "-c", "return to dock",
-        "--image-dir", str(tmp_path),
-    ])
+    rc = ros_node.main(
+        [
+            "--mock",
+            "--yes",
+            "-c",
+            "undock",
+            "-c",
+            "go to rack alpha",
+            "-c",
+            "return to dock",
+            "--image-dir",
+            str(tmp_path),
+        ]
+    )
     assert rc == 0

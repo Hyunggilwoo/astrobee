@@ -1,9 +1,8 @@
 import math
 import os
 
-import pytest
-
 import astrobee_cmd as ac
+import pytest
 from intent_parser import Intent, IntentParser, load_locations
 from sequencer import Sequencer
 
@@ -24,9 +23,15 @@ def names(be):
 def test_simple_move_encoding():
     c = ac.build_simple_move([11.25, -6.59, 4.8], [0, 0, 0, 1])
     assert c.cmd_name == "simpleMove6DOF" and c.cmd_src == "guest_science"
-    assert c.cmd_origin == ""  # "guest_science" origin is rejected without a primary APK
-    assert [a.data_type for a in c.args] == [ac.DATA_TYPE_STRING, ac.DATA_TYPE_VEC3d,
-                                             ac.DATA_TYPE_VEC3d, ac.DATA_TYPE_MAT33f]
+    assert (
+        c.cmd_origin == ""
+    )  # "guest_science" origin is rejected without a primary APK
+    assert [a.data_type for a in c.args] == [
+        ac.DATA_TYPE_STRING,
+        ac.DATA_TYPE_VEC3d,
+        ac.DATA_TYPE_VEC3d,
+        ac.DATA_TYPE_MAT33f,
+    ]
     assert c.args[0].value == "world"
     assert c.args[1].value == [11.25, -6.59, 4.8]
     assert c.args[2].value == [0.0, 0.0, 0.0]
@@ -35,13 +40,19 @@ def test_simple_move_encoding():
 
 def test_dock_and_camera_encoding():
     d = ac.build_dock(1)
-    assert d.cmd_name == "dock" and d.args[0].data_type == ac.DATA_TYPE_INT and d.args[0].value == 1
+    assert (
+        d.cmd_name == "dock"
+        and d.args[0].data_type == ac.DATA_TYPE_INT
+        and d.args[0].value == 1
+    )
     with pytest.raises(ValueError):
         ac.build_dock(3)
     s = ac.build_set_camera_streaming("Navigation", True)
     assert s.cmd_name == "setCameraStreaming"
-    assert [(a.data_type, a.value) for a in s.args] == [(ac.DATA_TYPE_STRING, "Navigation"),
-                                                         (ac.DATA_TYPE_BOOL, True)]
+    assert [(a.data_type, a.value) for a in s.args] == [
+        (ac.DATA_TYPE_STRING, "Navigation"),
+        (ac.DATA_TYPE_BOOL, True),
+    ]
 
 
 def test_unique_ids():
@@ -115,7 +126,9 @@ def test_berth_is_never_a_move_target(tmp_path):
 
 
 def test_todo_pose_refused_by_default(tmp_path):
-    locs = dict(LOCS, scratch={"pos": [11.0, -6.0, 4.8], "quat": [0, 0, 0, 1], "todo": True})
+    locs = dict(
+        LOCS, scratch={"pos": [11.0, -6.0, 4.8], "quat": [0, 0, 0, 1], "todo": True}
+    )
     be = ac.MockBackend()
     seq = Sequencer(ac.AstrobeeCommander(be), locs, image_dir=str(tmp_path))
     be.docked = False
@@ -157,8 +170,21 @@ def test_parser_to_sequencer_script(tmp_path):
 
 def test_cli_mock_script(tmp_path, capsys):
     import cli
-    rc = cli.main(["--mock", "--yes", "--image-dir", str(tmp_path),
-                   "-c", "undock", "-c", "go to mid jem", "-c", "return to dock"])
+
+    rc = cli.main(
+        [
+            "--mock",
+            "--yes",
+            "--image-dir",
+            str(tmp_path),
+            "-c",
+            "undock",
+            "-c",
+            "go to mid jem",
+            "-c",
+            "return to dock",
+        ]
+    )
     assert rc == 0
     rc = cli.main(["--mock", "--yes", "-c", "go to the cupola"])
     assert rc == 1

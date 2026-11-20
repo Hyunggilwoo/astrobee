@@ -39,11 +39,18 @@ def main() -> int:
         msg = _echo_pose(node, rclpy, PoseStamped, codec.TOPIC_POSE, 8.0)
         source = codec.TOPIC_POSE
     if msg is None:
-        print("final pose: no message on %s or %s" % (codec.TOPIC_TRUTH, codec.TOPIC_POSE), flush=True)
+        print(
+            "final pose: no message on %s or %s"
+            % (codec.TOPIC_TRUTH, codec.TOPIC_POSE),
+            flush=True,
+        )
         return 1
     p, o = msg.pose.position, msg.pose.orientation
-    print("final pose %s: %.3f %.3f %.3f  quat %.4f %.4f %.4f %.4f" % (
-        source, p.x, p.y, p.z, o.x, o.y, o.z, o.w), flush=True)
+    print(
+        "final pose %s: %.3f %.3f %.3f  quat %.4f %.4f %.4f %.4f"
+        % (source, p.x, p.y, p.z, o.x, o.y, o.z, o.w),
+        flush=True,
+    )
     return 0
 
 

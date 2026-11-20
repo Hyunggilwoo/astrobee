@@ -8,9 +8,16 @@ Sampling: words below, one clip per speaker, official test split first, then
 validation, then train, up to N per word (fixed seed). Conditions: clean, and
 dataset _background_noise_ at 10 dB and 5 dB SNR (noise file + offset random).
 """
-import csv, json, os, random, sys, wave, zlib
+import csv
+import json
+import os
+import random
+import sys
+import wave
+import zlib
 from collections import defaultdict
 from multiprocessing import Pool
+
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -21,14 +28,24 @@ sys.path.insert(0, HERE)
 WORDS = ["stop", "go", "off", "one", "two", "three", "four", "five", "no", "yes"]
 N_PER_WORD = 400
 CONDS = [("clean", None), ("bg_10dB", 10), ("bg_5dB", 5)]
-NOISE_FILES = ["doing_the_dishes.wav", "dude_miaowing.wav", "exercise_bike.wav",
-               "running_tap.wav", "pink_noise.wav", "white_noise.wav"]
+NOISE_FILES = [
+    "doing_the_dishes.wav",
+    "dude_miaowing.wav",
+    "exercise_bike.wav",
+    "running_tap.wav",
+    "pink_noise.wav",
+    "white_noise.wav",
+]
 DIGITS = ["one", "two", "three"]
 
 
 def read(path):
     with wave.open(path) as w:
-        return np.frombuffer(w.readframes(w.getnframes()), "<i2").astype(np.float32) / 32768, w.getframerate()
+        return (
+            np.frombuffer(w.readframes(w.getnframes()), "<i2").astype(np.float32)
+            / 32768,
+            w.getframerate(),
+        )
 
 
 def to_pcm(x):
@@ -37,9 +54,9 @@ def to_pcm(x):
 
 def speech_rms(x):
     f = x[: len(x) // 320 * 320].reshape(-1, 320)
-    e = np.sqrt((f ** 2).mean(1))
+    e = np.sqrt((f**2).mean(1))
     act = f[e > 0.1 * e.max()] if e.max() > 0 else f
-    return float(np.sqrt((act ** 2).mean()) + 1e-12)
+    return float(np.sqrt((act**2).mean()) + 1e-12)
 
 
 _NOISE = None
@@ -48,16 +65,18 @@ _NOISE = None
 def noise(n, rng):
     global _NOISE
     if _NOISE is None:
-        _NOISE = {f: read(os.path.join(SC, "_background_noise_", f))[0] for f in NOISE_FILES}
+        _NOISE = {
+            f: read(os.path.join(SC, "_background_noise_", f))[0] for f in NOISE_FILES
+        }
     f = rng.choice(NOISE_FILES)
     z = _NOISE[f]
     o = rng.randint(0, len(z) - n - 1)
-    return z[o:o + n], f
+    return z[o : o + n], f
 
 
 def mix(x, snr, rng):
     nz, f = noise(len(x), rng)
-    nz = nz * (speech_rms(x) / (np.sqrt((nz ** 2).mean()) + 1e-12)) / (10 ** (snr / 20))
+    nz = nz * (speech_rms(x) / (np.sqrt((nz**2).mean()) + 1e-12)) / (10 ** (snr / 20))
     y = x + nz
     pk = np.abs(y).max()
     return (y / pk * 0.9 if pk > 0.99 else y), f
@@ -80,7 +99,15 @@ def sample():
             if spk in seen:
                 continue
             seen.add(spk)
-            picks.append((w, f, {0: "test", 1: "validation", 2: "train"}[split.get("%s/%s" % (w, f), 2)]))
+            picks.append(
+                (
+                    w,
+                    f,
+                    {0: "test", 1: "validation", 2: "train"}[
+                        split.get("%s/%s" % (w, f), 2)
+                    ],
+                )
+            )
             if len([p for p in picks if p[0] == w]) >= N_PER_WORD:
                 break
     return picks
@@ -93,7 +120,8 @@ def _init():
     global _VR, _P, _DG
     import vosk
     from intent_parser import IntentParser, load_locations
-    from voice_input import VoiceRecognizer, DEFAULT_MODEL
+    from voice_input import DEFAULT_MODEL, VoiceRecognizer
+
     locs = load_locations(os.path.join(HERE, "locations.yaml"))
     _VR = VoiceRecognizer(DEFAULT_MODEL, locs)
     _P = IntentParser(locs)
@@ -102,6 +130,7 @@ def _init():
 
 def decide(h):
     from intent_parser import ParseError
+
     ok, why = _VR.accept(h)
     if not ok:
         return "", why
@@ -114,9 +143,10 @@ def decide(h):
 
 def digit_only(pcm):
     import vosk
+
     r = vosk.KaldiRecognizer(_VR.model, 16000, _DG)
     for i in range(0, len(pcm), 8000):
-        r.AcceptWaveform(pcm[i:i + 8000])
+        r.AcceptWaveform(pcm[i : i + 8000])
     return json.loads(r.FinalResult()).get("text", "").strip()
 
 
@@ -131,10 +161,23 @@ def _eval_one(item):
         h = _VR.recognize_pcm(pcm, sr)
         got, why = decide(h)
         dg = digit_only(pcm) if w in DIGITS + ["four", "five"] else ""
-        rows.append(dict(word=w, file=f, speaker=f.split("_nohash_")[0], split=split, cond=cond,
-                         noise=nf, heard=h.text, conf=round(h.confidence, 3),
-                         min_wconf=round(h.min_word_conf, 3), unk=h.unknown, accepted=got,
-                         why=why, digit_grammar=dg))
+        rows.append(
+            dict(
+                word=w,
+                file=f,
+                speaker=f.split("_nohash_")[0],
+                split=split,
+                cond=cond,
+                noise=nf,
+                heard=h.text,
+                conf=round(h.confidence, 3),
+                min_wconf=round(h.min_word_conf, 3),
+                unk=h.unknown,
+                accepted=got,
+                why=why,
+                digit_grammar=dg,
+            )
+        )
     return rows
 
 
@@ -160,32 +203,45 @@ def trim(x, sr):
     """Cut a 1 s Speech Commands clip to the spoken word (energy-based)."""
     hop = sr // 100
     f = x[: len(x) // hop * hop].reshape(-1, hop)
-    e = np.sqrt((f ** 2).mean(1))
+    e = np.sqrt((f**2).mean(1))
     on = np.where(e > 0.15 * e.max())[0]
     a, b = max(0, on[0] - 3), min(len(e), on[-1] + 4)
-    return x[a * hop: b * hop]
+    return x[a * hop : b * hop]
 
 
 def _splice_one(args):
     voice_label, carrier_path, word, f, snr = args
     from tools_broad_voice import read_wav, resample
+
     c, csr = read_wav(carrier_path)
     c = resample(c, csr, 16000)
     x, sr = read(os.path.join(SC, word, f))
     d = trim(x, sr)
-    d = d * (speech_rms(c) / speech_rms(d))          # level-match the real word
+    d = d * (speech_rms(c) / speech_rms(d))  # level-match the real word
     gap = np.zeros(int(0.05 * 16000), np.float32)
     pad = np.zeros(int(0.3 * 16000), np.float32)
     y = np.concatenate([pad, c, gap, d, pad])
     pk = np.abs(y).max()
     y = y / pk * 0.9 if pk > 0.99 else y
     if snr is not None:
-        y, _ = mix(y.astype(np.float32), snr, random.Random(zlib.crc32((f + str(snr)).encode())))
+        y, _ = mix(
+            y.astype(np.float32),
+            snr,
+            random.Random(zlib.crc32((f + str(snr)).encode())),
+        )
     h = _VR.recognize_pcm(to_pcm(y), 16000)
     got, why = decide(h)
-    return dict(cond="clean" if snr is None else "bg_%ddB" % snr, carrier_voice=voice_label,
-                carrier=os.path.basename(carrier_path), word=word, file=f,
-                heard=h.text, conf=round(h.confidence, 3), accepted=got, why=why)
+    return dict(
+        cond="clean" if snr is None else "bg_%ddB" % snr,
+        carrier_voice=voice_label,
+        carrier=os.path.basename(carrier_path),
+        word=word,
+        file=f,
+        heard=h.text,
+        conf=round(h.confidence, 3),
+        accepted=got,
+        why=why,
+    )
 
 
 def splice(tag, carriers, words_map, n=150):
@@ -212,11 +268,17 @@ def splice(tag, carriers, words_map, n=150):
 def make_carriers():
     """Synthetic carriers 'move to rack' / 'photograph rack' (Piper, 6 voices)."""
     from piper import PiperVoice, SynthesisConfig
+
     d = os.path.join(OUT, "carriers")
     os.makedirs(d, exist_ok=True)
-    voices = {"lessac": ("en_US-lessac-medium", None), "ryan": ("en_US-ryan-medium", None),
-              "amy": ("en_US-amy-medium", None), "alan": ("en_GB-alan-medium", None),
-              "jenny_dioco": ("en_GB-jenny_dioco-medium", None), "l2_asi": ("en_US-l2arctic-medium", 10)}
+    voices = {
+        "lessac": ("en_US-lessac-medium", None),
+        "ryan": ("en_US-ryan-medium", None),
+        "amy": ("en_US-amy-medium", None),
+        "alan": ("en_GB-alan-medium", None),
+        "jenny_dioco": ("en_GB-jenny_dioco-medium", None),
+        "l2_asi": ("en_US-l2arctic-medium", 10),
+    }
     out = {}
     for lab, (m, spk) in voices.items():
         v = PiperVoice.load(os.path.join(ROOT, "models", "piper", m + ".onnx"))
@@ -232,4 +294,8 @@ if __name__ == "__main__":
     if sys.argv[1] == "eval":
         evaluate(sys.argv[2])
     elif sys.argv[1] == "splice":
-        splice(sys.argv[2], make_carriers(), {"one": "rack_one", "two": "rack_two", "three": "rack_three"})
+        splice(
+            sys.argv[2],
+            make_carriers(),
+            {"one": "rack_one", "two": "rack_two", "three": "rack_three"},
+        )

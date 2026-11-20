@@ -8,6 +8,9 @@ on:
 jobs:
 
   build-focal:
+    # GitHub no longer provides ubuntu-20.04 runners, so this job stays queued
+    # forever on a fork. Upstream still runs it unchanged.
+    if: github.repository == 'nasa/astrobee'
 
     runs-on: ubuntu-20.04
 

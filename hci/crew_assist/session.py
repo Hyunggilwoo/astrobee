@@ -14,7 +14,7 @@ from typing import Callable, List, Optional
 
 import astrobee_cmd as ac
 from intent_parser import Intent, IntentParser, ParseError
-from sequencer import SequenceResult, Sequencer
+from sequencer import Sequencer, SequenceResult
 
 log = logging.getLogger("crew_assist.session")
 
@@ -22,9 +22,14 @@ ConfirmFn = Callable[[Intent], bool]
 
 
 class CrewSession:
-    def __init__(self, parser: IntentParser, sequencer: Sequencer,
-                 commander: ac.AstrobeeCommander, confirm: Optional[ConfirmFn] = None,
-                 echo: Callable[[str], None] = print):
+    def __init__(
+        self,
+        parser: IntentParser,
+        sequencer: Sequencer,
+        commander: ac.AstrobeeCommander,
+        confirm: Optional[ConfirmFn] = None,
+        echo: Callable[[str], None] = print,
+    ):
         self.parser = parser
         self.seq = sequencer
         self.cmd = commander
@@ -33,7 +38,9 @@ class CrewSession:
         self.results: List[SequenceResult] = []
         self._q: "queue.Queue[Optional[Intent]]" = queue.Queue()
         self._busy = threading.Event()
-        self._worker = threading.Thread(target=self._loop, name="crew-worker", daemon=True)
+        self._worker = threading.Thread(
+            target=self._loop, name="crew-worker", daemon=True
+        )
         self._worker.start()
 
     # -- worker ---------------------------------------------------------------
@@ -67,11 +74,14 @@ class CrewSession:
             except queue.Empty:
                 break
             self._q.task_done()
-            if item is None:          # keep a pending shutdown request
+            if item is None:  # keep a pending shutdown request
                 self._q.put(None)
                 break
             dropped += 1
-        self.echo("! %s -> stopAllMotion%s" % (why, " (dropped %d queued)" % dropped if dropped else ""))
+        self.echo(
+            "! %s -> stopAllMotion%s"
+            % (why, " (dropped %d queued)" % dropped if dropped else "")
+        )
         res = self.cmd.stop()
         self.echo("  stopAllMotion: %s %s" % (res.name, res.message))
         return res

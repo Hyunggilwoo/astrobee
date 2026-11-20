@@ -112,7 +112,9 @@ def dict_to_command(raw: dict) -> ac.Command:
     )
 
 
-def ack_to_dict(cmd_id: str, completed: int, message: str, status: int = ac.ACK_COMPLETED) -> dict:
+def ack_to_dict(
+    cmd_id: str, completed: int, message: str, status: int = ac.ACK_COMPLETED
+) -> dict:
     return {
         "header": {"stamp": {"sec": 0, "nanosec": 0}, "frame_id": ""},
         "cmd_id": cmd_id,
@@ -122,7 +124,9 @@ def ack_to_dict(cmd_id: str, completed: int, message: str, status: int = ac.ACK_
     }
 
 
-def pose_to_dict(pos: Iterable[float], quat: Iterable[float], frame_id: str = "world") -> dict:
+def pose_to_dict(
+    pos: Iterable[float], quat: Iterable[float], frame_id: str = "world"
+) -> dict:
     px, py, pz = [float(v) for v in pos]
     qx, qy, qz, qw = [float(v) for v in quat]
     return {
@@ -139,11 +143,16 @@ def pose_from_dict(raw: dict):
     pos = pose["position"]
     quat = pose["orientation"]
     return [float(pos["x"]), float(pos["y"]), float(pos["z"])], [
-        float(quat["x"]), float(quat["y"]), float(quat["z"]), float(quat["w"])]
+        float(quat["x"]),
+        float(quat["y"]),
+        float(quat["z"]),
+        float(quat["w"]),
+    ]
 
 
-def image_to_dict(width: int, height: int, encoding: str, step: int, data: bytes,
-                  frame_id: str = "") -> dict:
+def image_to_dict(
+    width: int, height: int, encoding: str, step: int, data: bytes, frame_id: str = ""
+) -> dict:
     return {
         "header": {"stamp": {"sec": 0, "nanosec": 0}, "frame_id": frame_id},
         "height": int(height),
@@ -185,8 +194,8 @@ class FrameBuffer:
                 raise ValueError("frame header %d is over the cap" % size)
             if len(self.buf) < 4 + size:
                 break
-            payload = self.buf[4:4 + size]
-            self.buf = self.buf[4 + size:]
+            payload = self.buf[4 : 4 + size]
+            self.buf = self.buf[4 + size :]
             out.append(json.loads(payload.decode("utf-8")))
         return out
 
@@ -251,8 +260,15 @@ def loads_latency_file(path: str) -> List[dict]:
 def required_msg_fields() -> Dict[str, List[str]]:
     return {
         "CommandArg": ["data_type", "b", "d", "f", "i", "ll", "s", "vec3d", "mat33f"],
-        "CommandStamped": ["header", "cmd_name", "cmd_id", "cmd_src", "cmd_origin",
-                           "subsys_name", "args"],
+        "CommandStamped": [
+            "header",
+            "cmd_name",
+            "cmd_id",
+            "cmd_src",
+            "cmd_origin",
+            "subsys_name",
+            "args",
+        ],
         "AckStatus": ["status"],
         "AckCompletedStatus": ["status"],
         "AckStamped": ["header", "cmd_id", "status", "completed_status", "message"],

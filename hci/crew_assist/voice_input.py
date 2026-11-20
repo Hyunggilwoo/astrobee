@@ -37,15 +37,29 @@ from typing import Dict, Iterable, Iterator, List, Optional, Tuple
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from intent_parser import IntentParser, ParseError, load_locations, normalize  # noqa: E402
+from intent_parser import (  # noqa: E402
+    IntentParser,
+    ParseError,
+    load_locations,
+    normalize,
+)
 
 DEFAULT_MODEL = os.path.join(HERE, "..", "models", "vosk-model-small-en-us-0.15")
 log = logging.getLogger("crew_assist.voice")
 
 FIXED_PHRASES = [
-    "stop", "stop all motion", "abort", "halt", "freeze", "emergency stop",
-    "undock", "leave the dock",
-    "return to dock", "return to the dock", "go home", "go back to the dock",
+    "stop",
+    "stop all motion",
+    "abort",
+    "halt",
+    "freeze",
+    "emergency stop",
+    "undock",
+    "leave the dock",
+    "return to dock",
+    "return to the dock",
+    "go home",
+    "go back to the dock",
     # NOTE: bare "dock" is deliberately NOT in the voice grammar: in noise Vosk
     # confused "stop" -> "dock", which would have started a return-to-dock.
 ]
@@ -54,25 +68,76 @@ STOP_WORDS = ("stop", "stop all motion", "abort", "halt", "freeze", "emergency s
 # unknown name is otherwise forced onto the nearest known one (measured:
 # "go to the cupola" -> "go to the kibo", conf 1.00). Decoys absorb those and
 # the parser then rejects them as unknown locations.
-DECOY_TARGETS = ["cupola", "node one", "node two", "node three", "harmony", "unity",
-                 "tranquility", "columbus", "destiny", "the lab", "airlock", "hatch",
-                 "window", "rack four", "rack five", "panel", "this panel", "that panel",
-                 # old numbered rack names: recognised, then REJECTED with a hint,
-                 # instead of being forced onto alpha/bravo/charlie
-                 "rack one", "rack two", "rack three", "first rack", "second rack", "third rack"]
+DECOY_TARGETS = [
+    "cupola",
+    "node one",
+    "node two",
+    "node three",
+    "harmony",
+    "unity",
+    "tranquility",
+    "columbus",
+    "destiny",
+    "the lab",
+    "airlock",
+    "hatch",
+    "window",
+    "rack four",
+    "rack five",
+    "panel",
+    "this panel",
+    "that panel",
+    # old numbered rack names: recognised, then REJECTED with a hint,
+    # instead of being forced onto alpha/bravo/charlie
+    "rack one",
+    "rack two",
+    "rack three",
+    "first rack",
+    "second rack",
+    "third rack",
+]
 # Bare "this/that/here/there" decoys were removed: on real speech (Speech
 # Commands) the decoy "that" captured 66/400 spoken "stop"s at 10 dB SNR.
-DECOY_PHRASES = ["open the hatch", "close the hatch", "turn on the lights", "turn off the lights",
-                 "what time is it", "take off", "land", "go"]
+DECOY_PHRASES = [
+    "open the hatch",
+    "close the hatch",
+    "turn on the lights",
+    "turn off the lights",
+    "what time is it",
+    "take off",
+    "land",
+    "go",
+]
 # "start" was removed from the decoys: in the broad synthetic test (31 voices,
 # 10,540 clips) it captured 38 spoken "stop"s. A missed stop is worse than a
 # false one, so nothing that sounds like "stop" may be a decoy.
-GOTO_TEMPLATES = ["go to {}", "fly to {}", "move to {}", "go to the {}", "fly to the {}"]
-PHOTO_TEMPLATES = ["photograph {}", "photograph the {}", "take a picture of {}",
-                   "take a picture of the {}", "take a photo of the {}"]
+GOTO_TEMPLATES = [
+    "go to {}",
+    "fly to {}",
+    "move to {}",
+    "go to the {}",
+    "fly to the {}",
+]
+PHOTO_TEMPLATES = [
+    "photograph {}",
+    "photograph the {}",
+    "take a picture of {}",
+    "take a picture of the {}",
+    "take a photo of the {}",
+]
 
-_DIGITS = {"0": "zero", "1": "one", "2": "two", "3": "three", "4": "four", "5": "five",
-           "6": "six", "7": "seven", "8": "eight", "9": "nine"}
+_DIGITS = {
+    "0": "zero",
+    "1": "one",
+    "2": "two",
+    "3": "three",
+    "4": "four",
+    "5": "five",
+    "6": "six",
+    "7": "seven",
+    "8": "eight",
+    "9": "nine",
+}
 
 
 def speakable(alias: str) -> str:
@@ -92,7 +157,9 @@ def spoken_targets(locations: Dict[str, dict]) -> List[str]:
     for name, loc in locations.items():
         if not loc.get("goto_allowed", True) or loc.get("todo") or "berth" in loc:
             continue  # berths/approach are reached via "return to dock"
-        names = loc.get("spoken") or ([name.replace("_", " ")] + list(loc.get("aliases", [])))
+        names = loc.get("spoken") or (
+            [name.replace("_", " ")] + list(loc.get("aliases", []))
+        )
         for a in names:
             s = speakable(a)
             s = re.sub(r"^the ", "", s)
@@ -121,8 +188,9 @@ def all_decoy_targets(locations: Dict[str, dict]) -> List[str]:
     return list(dict.fromkeys(DECOY_TARGETS + typed_only_targets(locations)))
 
 
-def build_grammar(locations: Dict[str, dict], in_vocab=None,
-                  decoys: bool = True) -> Tuple[List[str], List[str]]:
+def build_grammar(
+    locations: Dict[str, dict], in_vocab=None, decoys: bool = True
+) -> Tuple[List[str], List[str]]:
     """Return (phrases, dropped). `in_vocab(word)->bool` filters OOV phrases."""
     phrases = list(FIXED_PHRASES)
     targets = spoken_targets(locations)
@@ -147,35 +215,46 @@ def decoy_phrases(locations: Dict[str, dict]) -> List[str]:
     """Every grammar phrase that exists only to be rejected."""
     out = list(DECOY_PHRASES)
     for t in all_decoy_targets(locations):
-        out += [g.format(t) for g in GOTO_TEMPLATES] + [p.format(t) for p in PHOTO_TEMPLATES]
+        out += [g.format(t) for g in GOTO_TEMPLATES] + [
+            p.format(t) for p in PHOTO_TEMPLATES
+        ]
     return out
 
 
 @dataclass
 class Heard:
     text: str
-    confidence: float     # mean word confidence (0..1); 0 if nothing heard
-    unknown: bool         # grammar fell back to [unk]
-    min_word_conf: float = 0.0   # lowest single-word confidence
+    confidence: float  # mean word confidence (0..1); 0 if nothing heard
+    unknown: bool  # grammar fell back to [unk]
+    min_word_conf: float = 0.0  # lowest single-word confidence
 
 
 class VoiceRecognizer:
-    def __init__(self, model_path: str, locations: Dict[str, dict], min_conf: float = 0.6):
+    def __init__(
+        self, model_path: str, locations: Dict[str, dict], min_conf: float = 0.6
+    ):
         import vosk
+
         vosk.SetLogLevel(-1)
         if not os.path.isdir(model_path):
             raise FileNotFoundError(
                 "Vosk model not found at %s. From the repo root run "
                 "hci/crew_assist/scripts/download_vosk_model.sh "
                 "(vosk-model-small-en-us-0.15, about 40 MB). "
-                "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip" % model_path)
+                "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+                % model_path
+            )
         self.vosk = vosk
         self.model = vosk.Model(model_path)
         self.phrases, self.dropped = build_grammar(
-            locations, in_vocab=lambda w: self.model.vosk_model_find_word(w) >= 0)
+            locations, in_vocab=lambda w: self.model.vosk_model_find_word(w) >= 0
+        )
         if self.dropped:
-            log.warning("grammar: dropped %d phrases with out-of-vocabulary words: %s",
-                        len(self.dropped), self.dropped[:5])
+            log.warning(
+                "grammar: dropped %d phrases with out-of-vocabulary words: %s",
+                len(self.dropped),
+                self.dropped[:5],
+            )
         self.grammar = json.dumps(self.phrases + ["[unk]"])
         self.decoy_set = set(decoy_phrases(locations))
         self.phrase_set = set(self.phrases) - self.decoy_set
@@ -193,8 +272,12 @@ class VoiceRecognizer:
         words = res.get("result", [])
         conf = sum(w.get("conf", 0.0) for w in words) / len(words) if words else 0.0
         mn = min((w.get("conf", 0.0) for w in words), default=0.0)
-        return Heard(text.replace("[unk]", "").strip(), conf,
-                     "[unk]" in text or (bool(words) and not text), mn)
+        return Heard(
+            text.replace("[unk]", "").strip(),
+            conf,
+            "[unk]" in text or (bool(words) and not text),
+            mn,
+        )
 
     def recognize_wav(self, path: str) -> Heard:
         with wave.open(path, "rb") as wf:
@@ -208,16 +291,21 @@ class VoiceRecognizer:
         linearly interpolated to 16 kHz first."""
         if rate < 16000:
             import numpy as np
+
             x = np.frombuffer(pcm, dtype="<i2").astype(np.float32)
             n = int(round(len(x) * 16000.0 / rate))
-            pcm = np.interp(np.linspace(0, len(x) - 1, n), np.arange(len(x)), x) \
-                .round().astype("<i2").tobytes()
+            pcm = (
+                np.interp(np.linspace(0, len(x) - 1, n), np.arange(len(x)), x)
+                .round()
+                .astype("<i2")
+                .tobytes()
+            )
             rate = 16000
         rec = self.recognizer(rate)
         texts: List[Heard] = []
         step = 8000  # bytes = 4000 frames, same chunking as before
         for i in range(0, len(pcm), step):
-            if rec.AcceptWaveform(pcm[i:i + step]):
+            if rec.AcceptWaveform(pcm[i : i + step]):
                 h = self._heard(rec.Result())
                 if h.text or h.unknown:
                     texts.append(h)
@@ -229,19 +317,32 @@ class VoiceRecognizer:
         if len(texts) == 1:
             return texts[0]
         # several utterances in one clip: joined, so the whole-phrase gate rejects them
-        return Heard(" ".join(t.text for t in texts), min(t.confidence for t in texts),
-                     any(t.unknown for t in texts), min(t.min_word_conf for t in texts))
+        return Heard(
+            " ".join(t.text for t in texts),
+            min(t.confidence for t in texts),
+            any(t.unknown for t in texts),
+            min(t.min_word_conf for t in texts),
+        )
 
     def listen_mic(self, device=None, rate: int = 16000) -> Iterator[Heard]:
         import queue
+
         import sounddevice as sd
+
         q: "queue.Queue[bytes]" = queue.Queue()
 
         def cb(indata, frames, t, status):  # noqa: ARG001
             q.put(bytes(indata))
+
         rec = self.recognizer(rate)
-        with sd.RawInputStream(samplerate=rate, blocksize=8000, device=device, dtype="int16",
-                               channels=1, callback=cb):
+        with sd.RawInputStream(
+            samplerate=rate,
+            blocksize=8000,
+            device=device,
+            dtype="int16",
+            channels=1,
+            callback=cb,
+        ):
             while True:
                 if rec.AcceptWaveform(q.get()):
                     h = self._heard(rec.Result())
@@ -262,7 +363,11 @@ class VoiceRecognizer:
         if h.unknown:
             return False, "out-of-grammar speech ([unk]) - ignored"
         if t in getattr(self, "decoy_set", ()):
-            hint = " (racks are 'rack alpha / bravo / charlie' by voice)" if "rack" in t else ""
+            hint = (
+                " (racks are 'rack alpha / bravo / charlie' by voice)"
+                if "rack" in t
+                else ""
+            )
             return False, "not a flyable target: %r%s" % (t, hint)
         if t not in self.phrase_set:
             return False, "not a whole command phrase: %r" % t
@@ -282,10 +387,16 @@ class MicPTTSource:
 
     def start(self) -> None:
         import sounddevice as sd
+
         self._buf = []
-        self._stream = sd.RawInputStream(samplerate=self.rate, blocksize=4000, device=self.device,
-                                         dtype="int16", channels=1,
-                                         callback=lambda d, f, t, st: self._buf.append(bytes(d)))
+        self._stream = sd.RawInputStream(
+            samplerate=self.rate,
+            blocksize=4000,
+            device=self.device,
+            dtype="int16",
+            channels=1,
+            callback=lambda d, f, t, st: self._buf.append(bytes(d)),
+        )
         self._stream.start()
 
     def stop(self) -> Optional[Tuple[bytes, int]]:
@@ -334,26 +445,40 @@ def ptt_loop(vr: "VoiceRecognizer", source, on_heard, readline=None, echo=print)
             return n
         pcm, rate = got
         n += 1
-        on_heard(vr.recognize_pcm(pcm, rate), getattr(source, "current", None) or "ptt#%d" % n)
+        on_heard(
+            vr.recognize_pcm(pcm, rate),
+            getattr(source, "current", None) or "ptt#%d" % n,
+        )
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     src = p.add_mutually_exclusive_group(required=True)
-    src.add_argument("--wav", nargs="+", help="mono 16-bit WAV file(s), processed in order")
+    src.add_argument(
+        "--wav", nargs="+", help="mono 16-bit WAV file(s), processed in order"
+    )
     src.add_argument("--mic", action="store_true", help="live microphone (sounddevice)")
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--locations", default=os.path.join(HERE, "locations.yaml"))
     p.add_argument("--min-conf", type=float, default=0.6)
-    p.add_argument("--execute", action="store_true", help="send accepted intents to the robot")
+    p.add_argument(
+        "--execute", action="store_true", help="send accepted intents to the robot"
+    )
     p.add_argument("--mock", action="store_true", help="with --execute: mock backend")
-    p.add_argument("--yes", action="store_true", help="skip the y/N confirmation before motion")
+    p.add_argument(
+        "--yes", action="store_true", help="skip the y/N confirmation before motion"
+    )
     p.add_argument("--image-dir", default=os.path.join(HERE, "images"))
     p.add_argument("--log", default=None)
     p.add_argument("--device", default=None, help="sounddevice input device")
     p.add_argument("--print-grammar", action="store_true")
-    p.add_argument("--ptt", action="store_true",
-                   help="push-to-talk: Enter starts capture, Enter sends (with --mic, or --wav for tests)")
+    p.add_argument(
+        "--ptt",
+        action="store_true",
+        help="push-to-talk: Enter starts capture, Enter sends (with --mic, or --wav for tests)",
+    )
     a = p.parse_args(argv)
     if a.mic and a.yes and a.execute:
         # Broad synthetic test: 32/10,540 clips were confidently misheard as a
@@ -375,6 +500,7 @@ def main(argv=None) -> int:
         import astrobee_cmd as ac
         from sequencer import Sequencer
         from session import CrewSession
+
         backend = ac.MockBackend() if a.mock else ac.RosBackend("crew_assist_voice")
         commander = ac.AstrobeeCommander(backend)
         seq = Sequencer(commander, locs, image_dir=a.image_dir)
@@ -385,31 +511,48 @@ def main(argv=None) -> int:
             # read back the RESOLVED target and the raw words: the broad test showed
             # rack-number swaps ("three"->"two") at high confidence, so this prompt
             # is the real safeguard against a wrong destination.
-            print("  heard %r -> execute %s %s? [y/N] " % (intent.text, intent.action,
-                                                          intent.target or ""), end="", flush=True)
+            print(
+                "  heard %r -> execute %s %s? [y/N] "
+                % (intent.text, intent.action, intent.target or ""),
+                end="",
+                flush=True,
+            )
             return sys.stdin.readline().strip().lower() in ("y", "yes")
-        session = CrewSession(parser, seq, commander, confirm=confirm,
-                              echo=lambda m: print(m, flush=True))
 
-    lg = logging.getLogger("crew_assist")   # configured after rospy.init_node
+        session = CrewSession(
+            parser, seq, commander, confirm=confirm, echo=lambda m: print(m, flush=True)
+        )
+
+    lg = logging.getLogger("crew_assist")  # configured after rospy.init_node
     lg.setLevel(logging.INFO)
     lg.propagate = False
     fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
-    for h in [logging.StreamHandler()] + ([logging.FileHandler(a.log)] if a.log else []):
+    for h in [logging.StreamHandler()] + (
+        [logging.FileHandler(a.log)] if a.log else []
+    ):
         h.setFormatter(fmt)
         lg.addHandler(h)
 
     def handle(h: Heard, label: str) -> bool:
         ok, why = vr.accept(h)
-        log.info("HEARD %s: %r conf=%.2f unk=%s -> %s", label, h.text, h.confidence, h.unknown,
-                 "accepted" if ok else why)
+        log.info(
+            "HEARD %s: %r conf=%.2f unk=%s -> %s",
+            label,
+            h.text,
+            h.confidence,
+            h.unknown,
+            "accepted" if ok else why,
+        )
         if not ok:
             print("? (%s) %s" % (label, why), flush=True)
             return False
         if session is None:
             try:
                 i = parser.parse(h.text)
-                print("%s: %r -> %s %s" % (label, h.text, i.action, i.target or ""), flush=True)
+                print(
+                    "%s: %r -> %s %s" % (label, h.text, i.action, i.target or ""),
+                    flush=True,
+                )
                 return True
             except ParseError as e:
                 print("%s: %r -> ? %s" % (label, h.text, e), flush=True)
@@ -418,21 +561,29 @@ def main(argv=None) -> int:
         if intent is None:
             return False
         if intent.action != "stop":
-            session.wait_idle()     # WAV mode: one clip at a time, like a spoken script
+            session.wait_idle()  # WAV mode: one clip at a time, like a spoken script
             return session.results[-1].ok if session.results else False
         return True
 
     def live_heard(h: Heard, label: str = "mic") -> None:
         """Live (mic / PTT): never block the listener on a running sequence."""
         if session is not None and session.busy and normalize(h.text) in STOP_WORDS:
-            session.submit(h.text)          # preempts immediately
+            session.submit(h.text)  # preempts immediately
             return
         if session is not None and session.busy:
-            print("  busy - only 'emergency stop' (or stop/abort) is accepted while moving", flush=True)
+            print(
+                "  busy - only 'emergency stop' (or stop/abort) is accepted while moving",
+                flush=True,
+            )
             return
         ok, why = vr.accept(h)
-        log.info("HEARD %s: %r conf=%.2f -> %s", label, h.text, h.confidence,
-                 "accepted" if ok else why)
+        log.info(
+            "HEARD %s: %r conf=%.2f -> %s",
+            label,
+            h.text,
+            h.confidence,
+            "accepted" if ok else why,
+        )
         if ok:
             session.submit(h.text) if session else print(h.text, flush=True)
         else:
@@ -442,20 +593,33 @@ def main(argv=None) -> int:
     try:
         if a.ptt:
             src_ = WavPTTSource(a.wav) if a.wav else MicPTTSource(a.device)
-            print("push-to-talk. To stop the robot say 'EMERGENCY STOP' (or press Ctrl-C).", flush=True)
-            ptt_loop(vr, src_, lambda h, lab: live_heard(h, os.path.basename(lab)),
-                     echo=lambda m: print(m, flush=True))
+            print(
+                "push-to-talk. To stop the robot say 'EMERGENCY STOP' (or press Ctrl-C).",
+                flush=True,
+            )
+            ptt_loop(
+                vr,
+                src_,
+                lambda h, lab: live_heard(h, os.path.basename(lab)),
+                echo=lambda m: print(m, flush=True),
+            )
             if session is not None:
                 session.wait_idle()
         elif a.wav:
             for path in a.wav:
-                if not handle(vr.recognize_wav(path), os.path.basename(path)) and session is not None:
+                if (
+                    not handle(vr.recognize_wav(path), os.path.basename(path))
+                    and session is not None
+                ):
                     print("aborting remaining clips", flush=True)
                     rc = 1
                     break
         else:
-            print("listening... say a command. To stop the robot say 'EMERGENCY STOP' "
-                  "(Ctrl-C = stop robot; Ctrl-C twice to quit)", flush=True)
+            print(
+                "listening... say a command. To stop the robot say 'EMERGENCY STOP' "
+                "(Ctrl-C = stop robot; Ctrl-C twice to quit)",
+                flush=True,
+            )
             last_int = 0.0
             while True:
                 try:
@@ -463,6 +627,7 @@ def main(argv=None) -> int:
                         live_heard(h)
                 except KeyboardInterrupt:
                     import time
+
                     if session is not None:
                         session.stop("Ctrl-C")
                     if time.time() - last_int < 2.0:
