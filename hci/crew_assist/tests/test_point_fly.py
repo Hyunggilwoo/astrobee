@@ -47,7 +47,10 @@ def test_keepout_tap_is_rejected_and_a_near_wall_tap_is_clamped():
     u, v = _frac((10.01, -5.53, 4.85))
     try:
         point_fly.resolve_target(
-            {"source": "map", "u": u, "v": v}, _pose((11.0, -7.0, 4.85)), KEEPIN, KEEPOUT
+            {"source": "map", "u": u, "v": v},
+            _pose((11.0, -7.0, 4.85)),
+            KEEPIN,
+            KEEPOUT,
         )
     except point_fly.PlanError as exc:
         assert "keep-out" in str(exc)
@@ -117,7 +120,9 @@ def test_phone_tap_does_not_move_until_confirm_and_stop_still_wins():
     server = start_http(ctrl)
     try:
         client = Client(server, ctrl.code)
-        status, body = client.request("POST", "/api/pair", {"code": ctrl.code}, auth=False)
+        status, body = client.request(
+            "POST", "/api/pair", {"code": ctrl.code}, auth=False
+        )
         assert status == 200
         client.client_id = body["client_id"]
         u, v = _frac((11.3, -4.2, 4.85))

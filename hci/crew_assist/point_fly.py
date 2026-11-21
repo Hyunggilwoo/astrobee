@@ -53,9 +53,7 @@ def quat_to_matrix(quat: Sequence[float]):
 
 
 def rotate(matrix, vector):
-    return [
-        sum(matrix[row][col] * vector[col] for col in range(3)) for row in range(3)
-    ]
+    return [sum(matrix[row][col] * vector[col] for col in range(3)) for row in range(3)]
 
 
 def body_ray(u: float, v: float, width: int, height: int) -> List[float]:
@@ -91,7 +89,10 @@ def jem_overlay(keepin=None, keepout=None) -> dict:
     marks = []
     for box in keepout:
         blo, bhi = box
-        if bhi[2] < cruise_z - zone_mod.CLEARANCE or blo[2] > cruise_z + zone_mod.CLEARANCE:
+        if (
+            bhi[2] < cruise_z - zone_mod.CLEARANCE
+            or blo[2] > cruise_z + zone_mod.CLEARANCE
+        ):
             continue
         x0 = max(blo[0], lo[0])
         x1 = min(bhi[0], hi[0])
@@ -163,9 +164,7 @@ def camera_target(u_frac: float, v_frac: float, pose, keepin, keepout) -> dict:
     direction_body = body_ray(width_px, height_px, NAV_WIDTH, NAV_HEIGHT)
     matrix = quat_to_matrix(quat)
     direction = rotate(matrix, direction_body)
-    origin = [
-        pos[i] + rotate(matrix, CAM_OFFSET)[i] for i in range(3)
-    ]
+    origin = [pos[i] + rotate(matrix, CAM_OFFSET)[i] for i in range(3)]
     best = None
     kind = None
     for box in keepout:
@@ -214,7 +213,12 @@ def resolve_target(spec: dict, pose, keepin, keepout) -> dict:
             raise PlanError("that map point is outside the flight volume")
         shifted = math.sqrt(sum((clamped[i] - raw[i]) ** 2 for i in range(3)))
         look = (1.0, 0.0, 0.0)
-        return {"target": clamped, "clamped": shifted > 0.01, "look": look, "kind": "map"}
+        return {
+            "target": clamped,
+            "clamped": shifted > 0.01,
+            "look": look,
+            "kind": "map",
+        }
     if source == "camera":
         return camera_target(u, v, pose, keepin, keepout)
     raise PlanError("tap source must be map or camera")
