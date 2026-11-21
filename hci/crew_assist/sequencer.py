@@ -143,6 +143,15 @@ class Sequencer:
                 appr = self._approach()
                 if self._move(res, appr):  # dock only after approach OK
                     self._run(res, ac.build_dock(int(appr["berth"])))
+            elif a == "fly_path":
+                waypoints = list(intent.waypoints or [])
+                if not waypoints:
+                    raise ValueError("fly path is empty")
+                for wp in waypoints:
+                    if not self._run(
+                        res, ac.build_simple_move(wp["pos"], wp["quat"], self.frame)
+                    ):
+                        break
             elif a == "photograph":
                 loc = self._check_target(intent.target)
                 if self._move(res, loc):

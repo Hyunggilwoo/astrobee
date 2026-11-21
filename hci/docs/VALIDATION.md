@@ -98,6 +98,29 @@ Same VM. Phone server on port 8090, ROS 1 backend, pairing code printed by the
 - `HCI_WEB_BACKEND=ros2` as the page's motion path. The default page uses ROS 1. The fallback was tested by sending stop through the ROS 1 relay while the Jazzy relay was still running, not by killing the Jazzy relay first.
 - RViz, the Gazebo client, Windows/Mac/WSL2.
 
+## M4 (21 Nov 2026) — point and fly
+
+Same VM. `HCI_GUI=0`. Phone page on port 8090, ROS 1 backend. The robot undocked, then flew map taps and one center-of-image camera tap. Pose is the phone status pose. Error is distance from the planned target to the pose after the ack, not from a hand-surveyed wall.
+
+| Tap | Planned target (m) | Error |
+|---|---|---|
+| Map, rack alpha | 11.299, −7.499, 4.851 | 4.3 mm |
+| Map, mid JEM | 11.250, −6.591, 4.851 | 13.6 mm |
+| Map, rack charlie | 11.299, −4.199, 4.851 | 13.2 mm |
+| Camera, image center | 11.339, −3.796, 4.778 | 3.5 mm |
+
+The keep-out map tap returned HTTP 400, `that map point is inside a keep-out; it was not flown`. In the next second the pose moved 0.3 mm. Each flown plan was one `simpleMove6DOF`, ack OK. Confirm was required; the screenshot run cancelled the sheet and did not add another move.
+
+Phone-sized screenshots (390×844): map with the keep-out, and the read-back sheet with the path, under `/opt/cursor/artifacts/point-fly-map.png` and `point-fly-confirm.png`.
+
+### What was not validated
+
+- A physical phone on Wi-Fi. The browser was headless Chromium on this machine.
+- Off-center camera taps, and any comparison of a camera ray to a surveyed wall. The center-tap error is target versus achieved. The sim lens `k1` is not inverted, so corner rays are a pinhole approximation.
+- A path that has to go around a keep-out. That case is in `tests/test_point_fly.py` only.
+- `HCI_WEB_BACKEND=ros2` for the phone page. The flight used ROS 1.
+- RViz, the Gazebo client, Windows, Mac, and WSL2.
+
 ## Commands Hyunggil runs locally
 
 From a checkout of this fork, with Docker installed and at least about 8 GB of RAM for the VM:

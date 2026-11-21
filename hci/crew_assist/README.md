@@ -38,7 +38,8 @@ Ctrl-C never exits the CLI; type `quit` (or EOF) to leave.
 - `sequencer.py` — intent → gated command sequence.
 - `session.py` — shared front end: parse → confirm → queue → worker; preemptive stop.
 - `cli.py` — typed loop (tty or piped stdin) or scripted `-c` commands; `--mock` for no ROS.
-- `phone_control.py`, `phone_http.py` — pairing, read-back, STOP, dead-man, ROS 1 stop fallback.
+- `phone_control.py`, `phone_http.py` — pairing, read-back, STOP, dead-man, ROS 1 stop fallback, point-and-fly preview.
+- `zones.py`, `point_fly.py` — keep-in/keep-out clamp and the camera or map tap plan. See `../docs/M4_POINT_AND_FLY.md`.
 - `voice_input.py` — offline Vosk speech (`--mic` or `--wav`), closed grammar, same parser/session.
 - `locations.yaml` — named poses (world frame, quaternion x y z w); `zones_iss.json` — sim keep-in/keep-out boxes.
 - `tools_*.py` — helpers still used for zone dumps, pose surveys, halt checks, and voice clips.

@@ -66,7 +66,59 @@
   function showReadback(body) {
     previewId = body.preview_id;
     heard.textContent = body.readback;
+    var path = document.getElementById("path");
+    if (body.path && body.path.length) {
+      var lines = body.path.map(function (p, index) {
+        var label = index === 0 ? "from" : index === body.path.length - 1 ? "to" : "via";
+        return label + "  " + p.map(function (n) { return Number(n).toFixed(2); }).join("  ");
+      });
+      if (body.clamped) lines.push("clamped into the flight zone");
+      if (body.length_m != null) lines.push(Number(body.length_m).toFixed(2) + " m");
+      path.textContent = lines.join("\n");
+    } else {
+      path.textContent = "";
+    }
     readback.hidden = false;
+  }
+
+  function tapPoint(source, u, v) {
+    if (role !== "controller") return;
+    post("/api/preview_point", { source: source, u: u, v: v })
+      .then(showReadback)
+      .catch(function (err) { statusEl.textContent = err.message; });
+  }
+
+  cam.addEventListener("click", function (event) {
+    var rect = cam.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    tapPoint("camera", (event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height);
+  });
+
+  var map = document.getElementById("map");
+  map.addEventListener("click", function (event) {
+    var rect = map.getBoundingClientRect();
+    tapPoint("map", (event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height);
+  });
+
+  function drawMap() {
+    fetch("/api/map", { headers: headers() }).then(function (res) {
+      return res.json();
+    }).then(function (body) {
+      map.innerHTML = "";
+      var label = document.createElement("div");
+      label.className = "map-label";
+      label.textContent = "JEM, top down. Red is keep-out.";
+      map.appendChild(label);
+      (body.keepouts || []).forEach(function (box) {
+        var mark = document.createElement("div");
+        mark.className = "keepout";
+        mark.style.left = (box.u * 100) + "%";
+        mark.style.top = (box.v * 100) + "%";
+        mark.style.width = (box.w * 100) + "%";
+        mark.style.height = (box.h * 100) + "%";
+        map.appendChild(mark);
+      });
+    }).catch(function () {});
   }
 
   document.getElementById("pair-form").addEventListener("submit", function (event) {
@@ -78,6 +130,7 @@
       pair.hidden = true;
       app.hidden = false;
       document.getElementById("pair-error").textContent = "";
+      drawMap();
       poll();
     }).catch(function (err) {
       document.getElementById("pair-error").textContent = err.message;
