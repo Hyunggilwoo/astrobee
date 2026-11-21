@@ -31,6 +31,10 @@ flowchart LR
 namespace. Docker publishes `8090` on the host. A phone on the same Wi-Fi
 opens `http://<computer-lan-ip>:8090`.
 
+Bind address, port, backend, and heartbeat come from `HCI_WEB_BIND`,
+`HCI_WEB_PORT`, `HCI_WEB_BACKEND`, and `HCI_HEARTBEAT_S`. The defaults live in
+`hci/crew_assist/hci_config.py` and match `hci/docker/compose.yml`.
+
 The pairing code is printed by the `phone` container and written to
 `hci/logs/phone_pairing.txt`.
 

@@ -1,3 +1,5 @@
-# Mock-mode tests. ROS, vosk, and sounddevice are not required.
-pytest>=7
-pyyaml>=5
+# Mock-mode tests and the routine check. ROS, vosk, and sounddevice are not required.
+# Pins are the versions ./hci/check.sh installs on Python 3.10.
+pytest==7.4.4
+pyyaml==6.0.2
+ruff==0.6.9

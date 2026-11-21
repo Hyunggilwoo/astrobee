@@ -16,6 +16,7 @@ from typing import Optional
 
 import astrobee_cmd as ac
 import bridge_codec as codec
+import command_fields
 
 log = logging.getLogger("crew_assist.ros2")
 
@@ -46,37 +47,26 @@ class Ros2Backend(ac.Backend):
             return ac.AckResult(
                 cmd.cmd_id, ac.EXEC_FAILED, "not sent: %s" % exc, time.time() - t0
             )
-        deadline = t0 + timeout_s
-        abort_t = None
-        while True:
+
+        def poll():
             ack = self.transport.poll_ack(cmd.cmd_id)
-            if ack is not None and int(ack["completed_status"]["status"]) != ac.NOT:
-                return ac.AckResult(
-                    cmd.cmd_id,
-                    int(ack["completed_status"]["status"]),
-                    ack.get("message", ""),
-                    time.time() - t0,
-                )
-            ab = getattr(self, "abort_event", None)
-            if ab is not None and ab.is_set() and not stop:
-                if abort_t is None:
-                    abort_t = time.time()
-                elif time.time() - abort_t > getattr(self, "abort_grace_s", 10.0):
-                    return ac.AckResult(
-                        cmd.cmd_id,
-                        ac.CANCELED,
-                        "no ack after stop; abandoned locally",
-                        time.time() - t0,
-                    )
-            remaining = deadline - time.time()
-            if remaining <= 0:
-                return ac.AckResult(
-                    cmd.cmd_id,
-                    ac.TIMEOUT,
-                    "no final ack in %.0fs" % timeout_s,
-                    time.time() - t0,
-                )
-            self.transport.wait(min(remaining, 0.2))
+            if ack is None or int(ack["completed_status"]["status"]) == ac.NOT:
+                return None
+            return (
+                int(ack["completed_status"]["status"]),
+                ack.get("message", ""),
+            )
+
+        return ac.wait_final_ack(
+            cmd.cmd_id,
+            timeout_s,
+            poll,
+            self.transport.wait,
+            stop,
+            getattr(self, "abort_event", None),
+            getattr(self, "abort_grace_s", 10.0),
+            slice_s=0.2,
+        )
 
     def grab_image(self, topic: str, out_path: str, timeout_s: float) -> bool:
         raw = self.transport.wait_image(topic, timeout_s)
@@ -190,7 +180,12 @@ class RclpyTransport:
 
     def publish_command(self, msg_dict: dict, t_send: float) -> None:
         del t_send  # the relay stamps the envelope; the ROS message stays a pure command
-        self.pub.publish(_command_msg(self._CommandStamped, self._CommandArg, msg_dict))
+        message = self._CommandStamped()
+        stamp = msg_dict["header"]["stamp"]
+        message.header.stamp.sec = int(stamp["sec"])
+        message.header.stamp.nanosec = int(stamp["nanosec"])
+        command_fields.fill_command(message, msg_dict, self._CommandArg)
+        self.pub.publish(message)
 
     def poll_ack(self, cmd_id: str) -> Optional[dict]:
         with self._cv:
@@ -210,28 +205,3 @@ class RclpyTransport:
             time.sleep(0.05)
         return self._image
 
-
-def _command_msg(command_cls, arg_cls, raw: dict):
-    msg = command_cls()
-    stamp = raw["header"]["stamp"]
-    msg.header.stamp.sec = int(stamp["sec"])
-    msg.header.stamp.nanosec = int(stamp["nanosec"])
-    msg.header.frame_id = raw["header"].get("frame_id", "")
-    msg.cmd_name = raw["cmd_name"]
-    msg.cmd_id = raw["cmd_id"]
-    msg.cmd_src = raw["cmd_src"]
-    msg.cmd_origin = raw["cmd_origin"]
-    msg.subsys_name = raw["subsys_name"]
-    for item in raw["args"]:
-        arg = arg_cls()
-        arg.data_type = int(item["data_type"])
-        arg.b = bool(item["b"])
-        arg.d = float(item["d"])
-        arg.f = float(item["f"])
-        arg.i = int(item["i"])
-        arg.ll = int(item["ll"])
-        arg.s = str(item["s"])
-        arg.vec3d = [float(v) for v in item["vec3d"]]
-        arg.mat33f = [float(v) for v in item["mat33f"]]
-        msg.args.append(arg)
-    return msg

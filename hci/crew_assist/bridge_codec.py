@@ -12,12 +12,14 @@ from __future__ import annotations
 import base64
 import json
 import struct
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List
 
 import astrobee_cmd as ac
+import command_fields
+import hci_config
 
-BRIDGE_HOST = "127.0.0.1"
-BRIDGE_PORT = 11511
+BRIDGE_HOST = hci_config.BRIDGE_HOST
+BRIDGE_PORT = hci_config.BRIDGE_PORT
 MAX_FRAME = 8_000_000
 
 TOPIC_COMMAND = "/command"
@@ -28,64 +30,12 @@ TOPIC_IMAGE = "/hw/cam_nav"
 TOPIC_READY = "/hci_bridge/ready"
 
 
-def _zeros(n: int) -> List[float]:
-    return [0.0] * n
-
-
 def arg_to_dict(arg: ac.Arg) -> dict:
-    out = {
-        "data_type": int(arg.data_type),
-        "b": False,
-        "d": 0.0,
-        "f": 0.0,
-        "i": 0,
-        "ll": 0,
-        "s": "",
-        "vec3d": _zeros(3),
-        "mat33f": _zeros(9),
-    }
-    kind = arg.data_type
-    if kind == ac.DATA_TYPE_BOOL:
-        out["b"] = bool(arg.value)
-    elif kind == ac.DATA_TYPE_DOUBLE:
-        out["d"] = float(arg.value)
-    elif kind == ac.DATA_TYPE_FLOAT:
-        out["f"] = float(arg.value)
-    elif kind == ac.DATA_TYPE_INT:
-        out["i"] = int(arg.value)
-    elif kind == ac.DATA_TYPE_LONGLONG:
-        out["ll"] = int(arg.value)
-    elif kind == ac.DATA_TYPE_STRING:
-        out["s"] = str(arg.value)
-    elif kind == ac.DATA_TYPE_VEC3d:
-        out["vec3d"] = [float(v) for v in arg.value]
-    elif kind == ac.DATA_TYPE_MAT33f:
-        out["mat33f"] = [float(v) for v in arg.value]
-    else:
-        raise ValueError("unsupported CommandArg data_type %s" % kind)
-    return out
+    return command_fields.arg_dict(int(arg.data_type), arg.value)
 
 
 def dict_to_arg(raw: dict) -> ac.Arg:
-    kind = int(raw["data_type"])
-    if kind == ac.DATA_TYPE_BOOL:
-        value = bool(raw["b"])
-    elif kind == ac.DATA_TYPE_DOUBLE:
-        value = float(raw["d"])
-    elif kind == ac.DATA_TYPE_FLOAT:
-        value = float(raw["f"])
-    elif kind == ac.DATA_TYPE_INT:
-        value = int(raw["i"])
-    elif kind == ac.DATA_TYPE_LONGLONG:
-        value = int(raw["ll"])
-    elif kind == ac.DATA_TYPE_STRING:
-        value = str(raw["s"])
-    elif kind == ac.DATA_TYPE_VEC3d:
-        value = [float(v) for v in raw["vec3d"]]
-    elif kind == ac.DATA_TYPE_MAT33f:
-        value = [float(v) for v in raw["mat33f"]]
-    else:
-        raise ValueError("unsupported CommandArg data_type %s" % kind)
+    kind, value = command_fields.value_of(raw)
     return ac.Arg(kind, value)
 
 

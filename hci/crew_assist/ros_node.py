@@ -27,6 +27,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 import astrobee_cmd as ac  # noqa: E402
+import hci_config  # noqa: E402
 from intent_parser import IntentParser, load_locations  # noqa: E402
 from sequencer import DEFAULT_TIMEOUTS, Sequencer  # noqa: E402
 from session import CrewSession  # noqa: E402
@@ -135,7 +136,7 @@ def main(argv=None) -> int:
     p.add_argument("--allow-todo", action="store_true")
     p.add_argument(
         "--image-dir",
-        default=os.environ.get("HCI_IMAGE_DIR", os.path.join(HERE, "images")),
+        default=hci_config.image_dir(os.path.join(HERE, "images")),
     )
     p.add_argument("--log", default=None)
     p.add_argument("--timeout-scale", type=float, default=1.0)

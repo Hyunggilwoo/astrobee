@@ -9,14 +9,11 @@ Design: one-factor-at-a-time augmentations of every (voice, phrase) clip,
 plus one random "combo" stress clip per (voice, phrase).
 """
 import csv
-import io
-import json
 import os
 import random
 import subprocess
 import sys
 import wave
-from collections import defaultdict
 from multiprocessing import Pool
 
 import numpy as np

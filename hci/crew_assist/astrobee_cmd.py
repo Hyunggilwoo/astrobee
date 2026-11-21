@@ -281,6 +281,54 @@ class AstrobeeCommander:
         return self._send_stop()
 
 
+def wait_final_ack(
+    cmd_id: str,
+    timeout_s: float,
+    poll,
+    pause,
+    is_stop: bool,
+    abort_event,
+    abort_grace_s: float = 10.0,
+    is_shutdown=None,
+    slice_s: float = 0.5,
+) -> AckResult:
+    """Block until a final ack, a local abandon after stop, or the timeout.
+
+    `poll` returns (completed_status, message) once a final ack is visible,
+    or None while the command is still in progress. `pause` waits up to the
+    given seconds. Stop itself is not abandoned: a stop that never acks times
+    out instead. Both RosBackend and Ros2Backend use this so the fail-closed
+    timeout and the post-stop abandon stay one path.
+    """
+    t0 = time.time()
+    deadline = t0 + timeout_s
+    abort_t = None
+    while True:
+        polled = poll()
+        if polled is not None:
+            completed, message = polled
+            return AckResult(cmd_id, int(completed), message or "", time.time() - t0)
+        if abort_event is not None and abort_event.is_set() and not is_stop:
+            if abort_t is None:
+                abort_t = time.time()
+            elif time.time() - abort_t > abort_grace_s:
+                return AckResult(
+                    cmd_id,
+                    CANCELED,
+                    "no ack after stop; abandoned locally",
+                    time.time() - t0,
+                )
+        remaining = deadline - time.time()
+        if remaining <= 0 or (is_shutdown is not None and is_shutdown()):
+            return AckResult(
+                cmd_id,
+                TIMEOUT,
+                "no final ack in %.0fs" % timeout_s,
+                time.time() - t0,
+            )
+        pause(min(remaining, slice_s))
+
+
 class RosBackend(Backend):
     """Real backend. Topic names are relative so `ROS_NAMESPACE=honey` works."""
 
@@ -335,52 +383,36 @@ class RosBackend(Backend):
     def _to_msg(self, cmd: Command):
         from ff_msgs.msg import CommandArg
 
-        m = self.CommandStamped()
-        m.header.stamp = self.rospy.Time.now()
-        m.cmd_name, m.cmd_id = cmd.cmd_name, cmd.cmd_id
-        m.cmd_src, m.cmd_origin, m.subsys_name = (
-            cmd.cmd_src,
-            cmd.cmd_origin,
-            cmd.subsys_name,
-        )
-        for a in cmd.args:
-            ca = CommandArg()
-            ca.data_type = a.data_type
-            if a.data_type == DATA_TYPE_BOOL:
-                ca.b = bool(a.value)
-            elif a.data_type == DATA_TYPE_DOUBLE:
-                ca.d = float(a.value)
-            elif a.data_type == DATA_TYPE_FLOAT:
-                ca.f = float(a.value)
-            elif a.data_type == DATA_TYPE_INT:
-                ca.i = int(a.value)
-            elif a.data_type == DATA_TYPE_LONGLONG:
-                ca.ll = int(a.value)
-            elif a.data_type == DATA_TYPE_STRING:
-                ca.s = str(a.value)
-            elif a.data_type == DATA_TYPE_VEC3d:
-                ca.vec3d = list(a.value)
-            elif a.data_type == DATA_TYPE_MAT33f:
-                ca.mat33f = list(a.value)
-            m.args.append(ca)
-        return m
+        import command_fields
+
+        raw = {
+            "header": {"frame_id": ""},
+            "cmd_name": cmd.cmd_name,
+            "cmd_id": cmd.cmd_id,
+            "cmd_src": cmd.cmd_src,
+            "cmd_origin": cmd.cmd_origin,
+            "subsys_name": cmd.subsys_name,
+            "args": [command_fields.arg_dict(a.data_type, a.value) for a in cmd.args],
+        }
+        message = self.CommandStamped()
+        message.header.stamp = self.rospy.Time.now()
+        command_fields.fill_command(message, raw, CommandArg)
+        return message
 
     def execute(self, cmd: Command, timeout_s: float) -> AckResult:
-        t0 = time.time()
         with self._cv:
             self._acks.pop(cmd.cmd_id, None)
         self.pub.publish(self._to_msg(cmd))
         if cmd.cmd_name == CMD_STOP_ALL_MOTION:
             self.stop_published_at = time.time()
-        deadline = t0 + timeout_s
-        last_state = None
-        abort_t = None
-        with self._cv:
-            while True:
-                ack = self._acks.get(cmd.cmd_id)
+        last_state = {"value": None}
+
+        def poll():
+            ack = self._acks.get(cmd.cmd_id)
+            if ack is None or ack.completed_status.status == NOT:
                 if ack is not None:
                     state = (ack.status.status, ack.completed_status.status)
-                    if state != last_state:
+                    if state != last_state["value"]:
                         log.debug(
                             "ack %s status=%d completed=%d %s",
                             cmd.cmd_id,
@@ -388,39 +420,31 @@ class RosBackend(Backend):
                             state[1],
                             ack.message,
                         )
-                        last_state = state
-                    # NOT (0) means still in progress; anything else is final.
-                    if ack.completed_status.status != NOT:
-                        return AckResult(
-                            cmd.cmd_id,
-                            ack.completed_status.status,
-                            ack.message,
-                            time.time() - t0,
-                        )
-                ab = getattr(self, "abort_event", None)
-                if (
-                    ab is not None
-                    and ab.is_set()
-                    and cmd.cmd_name != CMD_STOP_ALL_MOTION
-                ):
-                    if abort_t is None:
-                        abort_t = time.time()
-                    elif time.time() - abort_t > getattr(self, "abort_grace_s", 10.0):
-                        return AckResult(
-                            cmd.cmd_id,
-                            CANCELED,
-                            "no ack after stop; " "abandoned locally",
-                            time.time() - t0,
-                        )
-                remaining = deadline - time.time()
-                if remaining <= 0 or self.rospy.is_shutdown():
-                    return AckResult(
-                        cmd.cmd_id,
-                        TIMEOUT,
-                        "no final ack in %.0fs" % timeout_s,
-                        time.time() - t0,
-                    )
-                self._cv.wait(min(remaining, 0.5))
+                        last_state["value"] = state
+                return None
+            state = (ack.status.status, ack.completed_status.status)
+            if state != last_state["value"]:
+                log.debug(
+                    "ack %s status=%d completed=%d %s",
+                    cmd.cmd_id,
+                    state[0],
+                    state[1],
+                    ack.message,
+                )
+            return (ack.completed_status.status, ack.message)
+
+        with self._cv:
+            return wait_final_ack(
+                cmd.cmd_id,
+                timeout_s,
+                poll,
+                self._cv.wait,
+                cmd.cmd_name == CMD_STOP_ALL_MOTION,
+                getattr(self, "abort_event", None),
+                getattr(self, "abort_grace_s", 10.0),
+                is_shutdown=self.rospy.is_shutdown,
+                slice_s=0.5,
+            )
 
     def grab_image(self, topic: str, out_path: str, timeout_s: float) -> bool:
         from sensor_msgs.msg import Image

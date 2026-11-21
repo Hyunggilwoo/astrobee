@@ -30,10 +30,10 @@ small typed relay, not `ros1_bridge`: Jazzy and Noetic cannot share one process,
 
 | | Goal | State |
 |---|---|---|
-| M0 | Fork plus this baseline: crew_assist, mock pytest, CI | this change |
-| M1 | Runs anywhere: one Docker command, browser view and drive, no Ubuntu 20.04 install | this change |
-| M2 | ROS 1 to ROS 2 bridge, without rewriting the flight code | this change |
-| M3 | Phone and web control as the main interface | this change |
+| M0 | Fork plus this baseline: crew_assist, mock pytest, CI | merged |
+| M1 | Runs anywhere: one Docker command, browser view and drive, no Ubuntu 20.04 install | merged |
+| M2 | ROS 1 to ROS 2 bridge, without rewriting the flight code | merged |
+| M3 | Phone and web control as the main interface | merged |
 | M4 | Point-and-fly: tap a camera or map point, preview, then a zone-respecting move | not started |
 | M5 | Communication-delay realism (the ISS link is not modeled yet) | not started |
 | M6 | Small sim user study and a write-up | not started |
@@ -45,8 +45,10 @@ add nodes, bridges, and clients next to the NASA packages.
 
 ```bash
 python3 -m pip install -r hci/crew_assist/requirements-dev.txt
-cd hci/crew_assist && python3 -m pytest -q
+./hci/check.sh
 ```
+
+`./hci/check.sh` is the routine health check: shell and Python syntax, unused-import lint, and mock pytest, with a pass/fail summary. `./hci/check.sh --sim` also runs the ROS 1 smoke, the ROS 2 smoke, and the phone browser script. That needs Docker and the simulator already built; it starts `./hci/up.sh` if port 8090 is down, and it leaves the stack running.
 
 Mock mode never imports rospy. Voice tests that need the Vosk model or generated
 clips skip themselves when those files are absent.
@@ -68,7 +70,8 @@ The first start pulls and builds on top of the NASA image, which is a few GB.
 
 Then open:
 
-- http://localhost:8088 — drive the robot
+- http://localhost:8090 — phone page (pairing code in `docker compose logs phone`)
+- http://localhost:8088 — desktop page
 - http://localhost:6080/vnc.html?autoconnect=1&resize=scale — RViz / Gazebo desktop
 
 Other commands:
@@ -95,8 +98,8 @@ hci-gui rviz
   (a WSL filesystem, or a directory you have shared). Do not start a second Gazebo on the Windows desktop.
 - The published URLs are on the host (`localhost`), including from a Mac or Windows browser.
 - There is no NVIDIA GPU requirement. `LIBGL_ALWAYS_SOFTWARE=1` is set on purpose.
-- Ports 6080, 8080, 8088, and 9090 are the web UI, camera, and rosbridge. noVNC has no
-  password and rosbridge is open. Keep them on localhost. Do not publish them on a public network.
+- Ports 6080 (noVNC), 8080 (camera), 8088 (desktop page), and 9090 (rosbridge) are published on the host. noVNC has no password and rosbridge is open. Keep those on the machine that runs Docker.
+- Port 8090 is the phone page. A phone on the same Wi-Fi opens `http://<computer-lan-ip>:8090`. Do not port-forward it, and do not put any of these ports on the public internet.
 
 ### Typed or spoken commands without the web page
 
@@ -150,12 +153,17 @@ The node is the only thing that builds `CommandStamped`.
 
 ```
 hci/README.md                 this file
-hci/up.sh  down.sh  smoke.sh
-hci/crew_assist/              command node, parser, sequencer, voice, tests
-hci/docker/compose.yml        sim + crew
-hci/docker/Dockerfile
-hci/docker/web/               static page (roslibjs)
-hci/docs/VALIDATION.md        what was run, and what was not
+hci/check.sh                  lint, pytest, optional sim smokes
+hci/up.sh  down.sh  smoke.sh  smoke_ros2.sh
+hci/crew_assist/              command node, parser, sequencer, phone API, voice, tests
+hci/phone/static/             phone page
+hci/docker/compose.yml        sim, crew, relays, phone
+hci/docker/Dockerfile         Noetic image
+hci/docker/Dockerfile.ros2    Jazzy image
+hci/docker/web/               desktop page (roslibjs)
+hci/docs/                     M2, M3, and VALIDATION.md
 ```
+
+Environment variables are read in `hci/crew_assist/hci_config.py`. The names and defaults match `hci/docker/compose.yml`: `HCI_WEB_BACKEND` (`ros1`), `HCI_WEB_BIND` (`0.0.0.0`), `HCI_WEB_PORT` (`8090`), `HCI_HEARTBEAT_S` (`2`), `HCI_BRIDGE_HOST` (`127.0.0.1`), `HCI_BRIDGE_PORT` (`11511`), `HCI_BRIDGE_LOG`, `HCI_LOG_DIR`, `HCI_IMAGE_DIR`, `HCI_VOSK_MODEL`, `HCI_GUI`, `HCI_NAV_CAM_RATE`, `HCI_PAIRING_CODE`.
 
 NASA packages under the repo root are untouched.

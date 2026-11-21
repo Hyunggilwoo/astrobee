@@ -19,9 +19,9 @@ import threading
 import time
 
 import bridge_codec as codec
+import hci_config
 
 log = logging.getLogger("hci.ros2_relay")
-LOG_PATH = os.environ.get("HCI_BRIDGE_LOG", "/hci/logs/bridge_latency.jsonl")
 
 
 class Ros2Relay:
@@ -77,7 +77,7 @@ class Ros2Relay:
         self._pending = {}
         self._lock = threading.Lock()
         self._ready = False
-        os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+        os.makedirs(os.path.dirname(hci_config.bridge_log()), exist_ok=True)
 
     def _publish_ready(self, ready: bool) -> None:
         from std_msgs.msg import Bool
@@ -181,7 +181,7 @@ class Ros2Relay:
             "round_trip_bridge_ms": slot["cmd_bridge_ms"] + ack_ms,
             "wall_ms": wall_ms,
         }
-        with open(LOG_PATH, "a") as handle:
+        with open(hci_config.bridge_log(), "a") as handle:
             handle.write(json.dumps(row) + "\n")
         log.info(
             "ack %s bridge round-trip %.2f ms, wall %.1f s",
@@ -191,8 +191,8 @@ class Ros2Relay:
         )
 
     def run(self) -> None:
-        host = os.environ.get("HCI_BRIDGE_HOST", codec.BRIDGE_HOST)
-        port = int(os.environ.get("HCI_BRIDGE_PORT", str(codec.BRIDGE_PORT)))
+        host = hci_config.bridge_host()
+        port = hci_config.bridge_port()
         spin = threading.Thread(target=lambda: self.rclpy.spin(self.node), daemon=True)
         spin.start()
         while self.rclpy.ok():
