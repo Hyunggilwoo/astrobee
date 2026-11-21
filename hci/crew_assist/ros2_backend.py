@@ -204,4 +204,3 @@ class RclpyTransport:
         while self._image is None and time.time() < deadline:
             time.sleep(0.05)
         return self._image
-

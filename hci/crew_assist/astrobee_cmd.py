@@ -381,9 +381,8 @@ class RosBackend(Backend):
             self._cv.notify_all()
 
     def _to_msg(self, cmd: Command):
-        from ff_msgs.msg import CommandArg
-
         import command_fields
+        from ff_msgs.msg import CommandArg
 
         raw = {
             "header": {"frame_id": ""},
