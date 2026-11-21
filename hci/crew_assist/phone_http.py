@@ -57,6 +57,9 @@ class PhoneHandler(BaseHTTPRequestHandler):
         if path == "/api/health":
             self._json(200, {"ok": True})
             return
+        if path == "/api/map":
+            self._map()
+            return
         self._static(path)
 
     def do_POST(self):  # noqa: N802
@@ -81,6 +84,9 @@ class PhoneHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/preview":
             self._preview(client)
+            return
+        if path == "/api/preview_point":
+            self._preview_point(client)
             return
         if path == "/api/confirm":
             self._confirm(client)
@@ -163,10 +169,26 @@ class PhoneHandler(BaseHTTPRequestHandler):
         payload["lines"] = list(getattr(self.ctrl, "echoes", []))[-12:]
         self._json(200, payload)
 
+    def _map(self) -> None:
+        client = self._client()
+        if client is None:
+            return
+        import point_fly
+
+        self._json(200, point_fly.jem_overlay())
+
     def _preview(self, client: str) -> None:
         text = str(self._body().get("text") or "")
         try:
             self._json(200, self.ctrl.preview(client, text))
+        except PermissionError as exc:
+            self._json(403, {"error": str(exc)})
+        except ValueError as exc:
+            self._json(400, {"error": str(exc)})
+
+    def _preview_point(self, client: str) -> None:
+        try:
+            self._json(200, self.ctrl.preview_point(client, self._body()))
         except PermissionError as exc:
             self._json(403, {"error": str(exc)})
         except ValueError as exc:

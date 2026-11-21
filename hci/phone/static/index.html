@@ -28,6 +28,8 @@
 
   <main id="app" hidden>
     <img id="cam" alt="Navigation camera">
+    <p class="hint">Tap the camera, or tap the JEM map. Nothing moves until Confirm.</p>
+    <div id="map" aria-label="JEM top-down map"></div>
     <p id="status" class="status">Waiting for the robot.</p>
     <p id="pose" class="pose">pose —</p>
     <div class="grid">
@@ -51,6 +53,7 @@
   <section id="readback" class="sheet" hidden>
     <h2>Read-back</h2>
     <p id="heard"></p>
+    <p id="path" class="path"></p>
     <div class="row">
       <button type="button" id="cancel">Cancel</button>
       <button type="button" id="confirm">Confirm</button>

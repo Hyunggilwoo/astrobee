@@ -16,6 +16,7 @@ class Intent:
     action: str
     target: Optional[str] = None
     text: str = ""
+    waypoints: Optional[list] = None
 
 
 class ParseError(ValueError):

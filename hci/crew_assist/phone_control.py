@@ -39,11 +39,32 @@ def describe(intent: Intent) -> str:
         return "fly to %s and save one nav-camera picture" % name
     if intent.action == "stop":
         return "stop all motion now"
+    if intent.action == "fly_path":
+        pos = intent.waypoints[-1]["pos"]
+        count = len(intent.waypoints)
+        return "fly to %.2f, %.2f, %.2f along %d waypoint%s" % (
+            pos[0],
+            pos[1],
+            pos[2],
+            count,
+            "" if count == 1 else "s",
+        )
     return intent.action
 
 
 def readback(heard: str, intent: Intent) -> str:
     return "Heard %s. About to %s." % (heard.strip(), describe(intent))
+
+
+def _preview_payload(preview_id: str, heard: str, intent: Intent) -> dict:
+    return {
+        "preview_id": preview_id,
+        "heard": heard,
+        "about": describe(intent),
+        "readback": readback(heard, intent),
+        "action": intent.action,
+        "target": intent.target,
+    }
 
 
 class FallbackBackend(ac.Backend):
@@ -231,14 +252,32 @@ class PhoneController:
         preview_id = secrets.token_hex(8)
         with self._lock:
             self.previews[preview_id] = intent
-        return {
-            "preview_id": preview_id,
-            "heard": text.strip(),
-            "about": describe(intent),
-            "readback": readback(text, intent),
-            "action": intent.action,
-            "target": intent.target,
-        }
+        return _preview_payload(preview_id, text.strip(), intent)
+
+    def preview_point(self, client_id: str, spec: dict) -> dict:
+        if self.role_of(client_id) != "controller":
+            raise PermissionError("view only")
+        import point_fly
+
+        try:
+            plan = point_fly.build_plan(spec, self.backend.current_pose())
+        except point_fly.PlanError as exc:
+            raise ValueError(str(exc)) from exc
+        intent = Intent(
+            "fly_path",
+            None,
+            text=spec.get("source") or "tap",
+            waypoints=plan["waypoints"],
+        )
+        preview_id = secrets.token_hex(8)
+        with self._lock:
+            self.previews[preview_id] = intent
+        payload = _preview_payload(preview_id, "a tap on the %s" % intent.text, intent)
+        payload["target_xyz"] = plan["target"]
+        payload["path"] = plan["path"]
+        payload["length_m"] = plan["length_m"]
+        payload["clamped"] = plan["clamped"]
+        return payload
 
     def confirm(self, client_id: str, preview_id: str) -> dict:
         if self.role_of(client_id) != "controller":

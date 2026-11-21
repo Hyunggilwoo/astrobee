@@ -47,9 +47,34 @@ h2 { font-size: 22px; margin-bottom: 8px; }
 
 #cam {
   width: 100%;
-  min-height: 180px;
-  object-fit: cover;
+  height: auto;
   background: #07090b;
+  cursor: crosshair;
+}
+
+#map {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  background: #14202a;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  touch-action: manipulation;
+}
+
+.keepout {
+  position: absolute;
+  background: rgba(214, 69, 61, 0.55);
+  border: 1px solid #ffb4ab;
+}
+
+.map-label {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  pointer-events: none;
 }
 
 .status, .pose { padding: 10px 12px; }
@@ -109,3 +134,4 @@ button { cursor: pointer; }
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
 }
 #heard { font-size: 20px; margin-top: 8px; }
+.path { margin-top: 8px; color: var(--muted); font-size: 14px; white-space: pre-wrap; }

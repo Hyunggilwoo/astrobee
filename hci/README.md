@@ -21,7 +21,7 @@ sends `dock`. It never sends `autoReturn`. Moves use frame `world`. `cmd_origin`
 because a `guest_science` origin gets `EXEC_FAILED` when no primary APK is running.
 
 `./hci/up.sh` also starts the phone page on port 8090 (see
-`hci/docs/M3_PHONE_WEB_CONTROL.md`) and a ROS 2 Jazzy relay. A Jazzy client drives the same sim with
+`hci/docs/M3_PHONE_WEB_CONTROL.md` and `hci/docs/M4_POINT_AND_FLY.md`) and a ROS 2 Jazzy relay. A Jazzy client drives the same sim with
 `./hci/smoke_ros2.sh` or `python3 hci/crew_assist/cli.py --backend ros2`. The bridge is a
 small typed relay, not `ros1_bridge`: Jazzy and Noetic cannot share one process, and
 `ff_msgs` would still need a custom mapping. See `hci/docs/M2_ROS2_BRIDGE.md`.
@@ -34,7 +34,7 @@ small typed relay, not `ros1_bridge`: Jazzy and Noetic cannot share one process,
 | M1 | Runs anywhere: one Docker command, browser view and drive, no Ubuntu 20.04 install | merged |
 | M2 | ROS 1 to ROS 2 bridge, without rewriting the flight code | merged |
 | M3 | Phone and web control as the main interface | merged |
-| M4 | Point-and-fly: tap a camera or map point, preview, then a zone-respecting move | not started |
+| M4 | Point-and-fly: tap a camera or map point, preview, then a zone-respecting move | this change |
 | M5 | Communication-delay realism (the ISS link is not modeled yet) | not started |
 | M6 | Small sim user study and a write-up | not started |
 
