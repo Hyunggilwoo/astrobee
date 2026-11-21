@@ -59,6 +59,33 @@ The executive accepted the commands, so `cmd_origin` was empty in practice: a `g
 - **The full sortie was not repeated** after switching DDS discovery from the deprecated `ROS_LOCALHOST_ONLY` (used for the flight above) to `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST`. After the switch, `/hci_bridge/ready` still came up and `/hw/cam_nav` still delivered a 320×240 `mono8` frame. The command path was not flown a second time.
 - **GitHub Actions for this branch** had not finished at the time of this note.
 
+## M3 (20 Nov 2026) — phone page
+
+Same VM. Phone server on port 8090, ROS 1 backend, pairing code printed by the
+`phone` container. Playwright Chromium, viewport 390×844.
+
+### What passed
+
+| Check | Result |
+|---|---|
+| Mock pytest including phone API tests | 111 passed, 10 skipped |
+| Auth | missing or wrong pairing code is HTTP 401, including STOP |
+| One controller | second paired client is view-only and gets HTTP 403 on preview |
+| Read-back | "go to rack alpha" does not move until Confirm; the sheet says it will fly to rack one |
+| STOP mid-flight in the sim | in-flight `simpleMove6DOF` acked `CANCELED` ("canceled due to a stop command"); `stopAllMotion` acked OK |
+| Tap to publish | 2.1 ms (server entry to publish 0.5 ms) on the last of three stops |
+| Dead-man | mock heartbeat 0.35 s, stop fired at a 0.351 s gap while a move was in flight |
+| ROS 1 stop fallback | `Ros1RelayStop` published `stopAllMotion` through the relay TCP port; executive completed status OK (1) |
+| Phone screenshots | home, confirm sheet, in flight, after stop, under `/opt/cursor/artifacts/phone-*.png` |
+
+### What was not run
+
+- A physical phone on Wi-Fi. The browser was headless Chromium on the same machine.
+- The microphone and Vosk. The model is not installed here. The Hold to talk control is disabled unless the page is a secure context, and `/api/voice` returns 503 without the model.
+- A self-signed certificate and a phone trusting it. The commands are in `M3_PHONE_WEB_CONTROL.md`. Nothing was proxied or tunneled.
+- `HCI_WEB_BACKEND=ros2` as the page's motion path. The default page uses ROS 1. The fallback was tested by sending stop through the ROS 1 relay while the Jazzy relay was still running, not by killing the Jazzy relay first.
+- RViz, the Gazebo client, Windows/Mac/WSL2.
+
 ## Commands Hyunggil runs locally
 
 From a checkout of this fork, with Docker installed and at least about 8 GB of RAM for the VM:
@@ -74,6 +101,7 @@ cd hci/crew_assist && python3 -m pytest -q
 ./hci/smoke.sh          # undock, rack alpha, return to dock, ROS 1 path
 ./hci/smoke_ros2.sh      # same sortie, driven from ROS 2 Jazzy
 ./hci/down.sh
+# phone: http://<lan-ip>:8090  (code from: docker compose -f hci/docker/compose.yml logs phone)
 ```
 
 Optional:

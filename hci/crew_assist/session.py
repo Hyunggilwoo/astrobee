@@ -100,6 +100,18 @@ class CrewSession:
         if self.confirm is not None and not self.confirm(intent):
             self.echo("  skipped")
             return None
+        return self.enqueue(intent)
+
+    def enqueue(self, intent: Intent) -> Intent:
+        """Queue an intent that was already parsed and confirmed.
+
+        Stop still bypasses the queue. The phone UI uses this after the
+        read-back Confirm tap.
+        """
+        self.echo("> %s %s" % (intent.action, intent.target or ""))
+        if intent.action == "stop":
+            self.stop("stop requested")
+            return intent
         if self.busy:
             self.echo("  queued (robot busy; say 'stop' to cancel)")
         self._q.put(intent)
