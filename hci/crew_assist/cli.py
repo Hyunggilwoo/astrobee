@@ -25,13 +25,13 @@ from session import CrewSession  # noqa: E402
 def _backend(args):
     if args.mock and args.backend not in (None, "mock"):
         raise SystemExit("--mock cannot be combined with --backend %s" % args.backend)
-    if args.mock or args.backend == "mock":
-        return ac.MockBackend(move_time_s=args.mock_move_time)
-    if args.backend == "ros2":
-        from ros2_backend import Ros2Backend
+    from backend_factory import open_backend
 
-        return Ros2Backend()
-    return ac.RosBackend()
+    if args.mock or args.backend == "mock":
+        return open_backend("mock", mock_move_time=args.mock_move_time)
+    if args.backend == "ros2":
+        return open_backend("ros2")
+    return open_backend("ros1")
 
 
 def main(argv=None) -> int:

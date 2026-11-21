@@ -1,0 +1,8 @@
+# Routine lint for the HCI tree. Style is not enforced here; F401/F841 catch
+# unused imports and unused names without reformatting the NASA-adjacent code.
+target-version = "py38"
+line-length = 88
+
+[lint]
+select = ["F401", "F841"]
+exclude = ["logs", "models"]

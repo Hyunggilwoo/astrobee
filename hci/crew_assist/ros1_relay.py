@@ -8,16 +8,15 @@ unchanged. This process is the only new ROS 1 node.
 from __future__ import annotations
 
 import logging
-import os
 import socket
 import threading
 import time
 
 import bridge_codec as codec
+import command_fields
+import hci_config
 
 log = logging.getLogger("hci.ros1_relay")
-HOST = os.environ.get("HCI_BRIDGE_HOST", codec.BRIDGE_HOST)
-PORT = int(os.environ.get("HCI_BRIDGE_PORT", str(codec.BRIDGE_PORT)))
 
 
 class Relay:
@@ -162,24 +161,7 @@ class Relay:
         msg = self.CommandStamped()
         stamp = raw["header"]["stamp"]
         msg.header.stamp = self.rospy.Time(int(stamp["sec"]), int(stamp["nanosec"]))
-        msg.header.frame_id = raw["header"].get("frame_id", "")
-        msg.cmd_name = raw["cmd_name"]
-        msg.cmd_id = raw["cmd_id"]
-        msg.cmd_src = raw["cmd_src"]
-        msg.cmd_origin = raw["cmd_origin"]
-        msg.subsys_name = raw["subsys_name"]
-        for item in raw.get("args", []):
-            arg = self.CommandArg()
-            arg.data_type = int(item["data_type"])
-            arg.b = bool(item["b"])
-            arg.d = float(item["d"])
-            arg.f = float(item["f"])
-            arg.i = int(item["i"])
-            arg.ll = int(item["ll"])
-            arg.s = str(item["s"])
-            arg.vec3d = [float(v) for v in item["vec3d"]]
-            arg.mat33f = [float(v) for v in item["mat33f"]]
-            msg.args.append(arg)
+        command_fields.fill_command(msg, raw, self.CommandArg)
         self.pub.publish(msg)
         self._send(
             {
@@ -199,10 +181,12 @@ class Relay:
     def serve(self) -> None:
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server.bind((HOST, PORT))
+        host = hci_config.bridge_host()
+        port = hci_config.bridge_port()
+        server.bind((host, port))
         server.listen(2)
         server.settimeout(1.0)
-        log.info("listening on %s:%d", HOST, PORT)
+        log.info("listening on %s:%d", host, port)
         while not self.rospy.is_shutdown():
             try:
                 sock, _addr = server.accept()

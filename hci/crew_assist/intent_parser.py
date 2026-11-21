@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, List, Optional
 
 ACTIONS = ("undock", "go_to", "photograph", "return_to_dock", "stop")
 

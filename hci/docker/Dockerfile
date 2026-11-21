@@ -35,14 +35,12 @@ RUN set -eux; \
       curl \
       ros-noetic-rosbridge-suite \
       ros-noetic-web-video-server \
+      fonts-dejavu-core \
     ; \
     rm -rf /var/lib/apt/lists/*
 
-# xterm -fa Monospace needs a fontconfig family. xfonts-base alone is bitmap-only.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends fonts-dejavu-core \
-    && rm -rf /var/lib/apt/lists/*
-
+# fonts-dejavu-core is in the install above so xterm -fa Monospace has a
+# fontconfig family. xfonts-base alone is bitmap-only.
 COPY crew_assist /opt/hci/crew_assist
 COPY docker /opt/hci/docker
 

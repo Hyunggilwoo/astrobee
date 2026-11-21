@@ -2,11 +2,11 @@
 """Print one truth pose (falling back to loc/pose) and the bridge latency summary."""
 from __future__ import annotations
 
-import os
 import sys
 import time
 
 import bridge_codec as codec
+import hci_config
 
 
 def _echo_pose(node, rclpy, pose_cls, topic: str, timeout_s: float = 10.0):
@@ -24,7 +24,7 @@ def _echo_pose(node, rclpy, pose_cls, topic: str, timeout_s: float = 10.0):
 
 
 def main() -> int:
-    path = os.environ.get("HCI_BRIDGE_LOG", "/hci/logs/bridge_latency.jsonl")
+    path = hci_config.bridge_log()
     summary = codec.summarize_latency(codec.loads_latency_file(path))
     print(codec.format_latency(summary), flush=True)
 

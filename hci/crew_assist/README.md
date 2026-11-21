@@ -1,4 +1,4 @@
-# crew_assist — Astrobee crew-assist commands (Plan 1, weeks 1–3)
+# crew_assist — Astrobee crew-assist commands
 
 This directory is the personal HCI prototype inside Hyunggil Woo's fork.
 It lives at `hci/crew_assist/` and does not change NASA flight-software behaviour.
@@ -28,16 +28,23 @@ right away and block the rest of the current sequence (e.g. no `dock` after a st
 Ctrl-C never exits the CLI; type `quit` (or EOF) to leave.
 
 ## Files
-- `astrobee_cmd.py` — command builders (arg layout ported from `simple_move.cc`/`teleop_tool.cc`), `RosBackend`, `MockBackend`, PNG writer.
+- `astrobee_cmd.py` — command builders (arg layout ported from `simple_move.cc`/`teleop_tool.cc`), `RosBackend`, `MockBackend`, the shared ack wait, PNG writer.
+- `command_fields.py` — CommandArg dict and the ROS 1 / ROS 2 message fill used by both relays.
+- `hci_config.py` — environment-variable names and defaults.
+- `backend_factory.py` — opens the mock, ROS 1, or ROS 2 backend for the CLI and the phone.
+- `bridge_codec.py` — TCP frame codec for the ROS 1 / ROS 2 relay.
+- `ros1_relay.py`, `ros2_backend.py` — Noetic relay and the Jazzy command backend.
 - `intent_parser.py` — rule-based text → `{action, target}`.
 - `sequencer.py` — intent → gated command sequence.
 - `session.py` — shared front end: parse → confirm → queue → worker; preemptive stop.
 - `cli.py` — typed loop (tty or piped stdin) or scripted `-c` commands; `--mock` for no ROS.
+- `phone_control.py`, `phone_http.py` — pairing, read-back, STOP, dead-man, ROS 1 stop fallback.
 - `voice_input.py` — offline Vosk speech (`--mic` or `--wav`), closed grammar, same parser/session.
 - `locations.yaml` — named poses (world frame, quaternion x y z w); `zones_iss.json` — sim keep-in/keep-out boxes.
-- `tools_*.py` — helpers: `dump_zones`, `survey` (fly + photograph candidate poses), `pose_logger`,
-  `halt_check`, `make_wavs` (Piper TTS test clips), `eval_voice` (accuracy).
+- `tools_*.py` — helpers still used for zone dumps, pose surveys, halt checks, and voice clips.
 - `tests/` — pytest in mock mode. Voice tests that need the Vosk model and generated clips skip themselves when those files are absent.
+
+The routine check is `../check.sh` (see `../README.md`).
 
 ## Verified against the source (nasa/astrobee master bf43a42)
 - `cmd_name` tokens from `CommandConstants.msg`: `undock`, `dock`, `simpleMove6DOF`, `stopAllMotion`, `setCameraStreaming`.
@@ -49,10 +56,10 @@ Ctrl-C never exits the CLI; type `quit` (or EOF) to leave.
 
 ## Run in mock mode (any OS, Python ≥3.8, PyYAML)
 ```bash
-cd crew_assist
+cd hci/crew_assist
 python3 cli.py --mock                                   # interactive
 python3 cli.py --mock --yes -c undock -c "go to mid jem" -c "return to dock"
-python3 -m pip install pytest pyyaml && python3 -m pytest -q
+python3 -m pip install -r requirements-dev.txt && python3 -m pytest -q
 ```
 
 ## Run against the sim (Ubuntu 20.04 + ROS Noetic, or NASA's Docker image)

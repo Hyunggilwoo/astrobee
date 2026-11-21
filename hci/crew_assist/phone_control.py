@@ -16,13 +16,14 @@ from typing import Dict, Optional
 
 import astrobee_cmd as ac
 import bridge_codec as codec
+import hci_config
 from intent_parser import Intent, IntentParser, ParseError
 from sequencer import Sequencer
 from session import CrewSession
 
 log = logging.getLogger("crew_assist.phone")
 
-DEFAULT_HEARTBEAT_S = 2.0
+DEFAULT_HEARTBEAT_S = hci_config.HEARTBEAT_S
 
 
 def describe(intent: Intent) -> str:
@@ -111,9 +112,9 @@ class Ros1RelayStop(ac.Backend):
     Only stopAllMotion is sent through this path.
     """
 
-    def __init__(self, host: str = codec.BRIDGE_HOST, port: int = codec.BRIDGE_PORT):
-        self.host = host
-        self.port = port
+    def __init__(self, host: Optional[str] = None, port: Optional[int] = None):
+        self.host = hci_config.bridge_host() if host is None else host
+        self.port = hci_config.bridge_port() if port is None else port
         self.abort_event = None
         self.abort_grace_s = 10.0
 

@@ -15,7 +15,6 @@ import random
 import sys
 import wave
 import zlib
-from collections import defaultdict
 from multiprocessing import Pool
 
 import numpy as np
@@ -118,7 +117,6 @@ _VR = _P = _DG = None
 
 def _init():
     global _VR, _P, _DG
-    import vosk
     from intent_parser import IntentParser, load_locations
     from voice_input import DEFAULT_MODEL, VoiceRecognizer
 

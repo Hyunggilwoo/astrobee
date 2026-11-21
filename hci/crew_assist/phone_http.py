@@ -12,12 +12,13 @@ import mimetypes
 import os
 import secrets
 import threading
-import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Optional
 from urllib.parse import urlparse
 
 import astrobee_cmd as ac
+import hci_config
+from backend_factory import open_backend
 from intent_parser import load_locations
 from phone_control import FallbackBackend, PhoneController, Ros1RelayStop, make_session
 
@@ -243,9 +244,8 @@ def _cookies(code: str, client_id: str):
 
 def recognize_wav_bytes(wav: bytes):
     """Return (True, phrase) or (False, reason), or None if Vosk is unavailable."""
-    model = os.environ.get(
-        "HCI_VOSK_MODEL",
-        os.path.join(HERE, "..", "models", "vosk-model-small-en-us-0.15"),
+    model = hci_config.vosk_model(
+        os.path.join(HERE, "..", "models", "vosk-model-small-en-us-0.15")
     )
     if not os.path.isdir(model):
         return None
@@ -285,14 +285,12 @@ recognize_wav_bytes.recognizer = None
 
 def build_backend(mode: str, mock_move_time: float = 0.0):
     if mode == "mock":
-        return ac.MockBackend(move_time_s=mock_move_time), None
+        return open_backend("mock", mock_move_time=mock_move_time), None
     if mode == "ros2":
-        from ros2_backend import Ros2Backend
-
-        primary = Ros2Backend()
+        primary = open_backend("ros2")
         return FallbackBackend(primary, Ros1RelayStop()), primary
-    backend = ac.RosBackend(
-        node_name="hci_phone", disable_signals=False, anonymous=False
+    backend = open_backend(
+        "ros1", node_name="hci_phone", disable_signals=False, anonymous=False
     )
     return backend, backend
 
@@ -339,16 +337,12 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--backend",
         choices=("ros1", "ros2", "mock"),
-        default=os.environ.get("HCI_WEB_BACKEND", "ros1"),
+        default=hci_config.web_backend(),
     )
-    parser.add_argument("--host", default=os.environ.get("HCI_WEB_BIND", "0.0.0.0"))
-    parser.add_argument(
-        "--port", type=int, default=int(os.environ.get("HCI_WEB_PORT", "8090"))
-    )
-    parser.add_argument("--code", default=os.environ.get("HCI_PAIRING_CODE") or None)
-    parser.add_argument(
-        "--heartbeat", type=float, default=float(os.environ.get("HCI_HEARTBEAT_S", "2"))
-    )
+    parser.add_argument("--host", default=hci_config.web_bind())
+    parser.add_argument("--port", type=int, default=hci_config.web_port())
+    parser.add_argument("--code", default=hci_config.pairing_code())
+    parser.add_argument("--heartbeat", type=float, default=hci_config.heartbeat_s())
     parser.add_argument("--mock-move-time", type=float, default=0.0)
     parser.add_argument("--locations", default=os.path.join(HERE, "locations.yaml"))
     args = parser.parse_args(argv)
@@ -358,7 +352,7 @@ def main(argv=None) -> int:
     intent_parser, session, echoes = make_session(
         backend,
         locations,
-        image_dir=os.environ.get("HCI_IMAGE_DIR", os.path.join(HERE, "images")),
+        image_dir=hci_config.image_dir(os.path.join(HERE, "images")),
     )
     ctrl = PhoneController(
         session, intent_parser, backend, code=args.code, heartbeat_s=args.heartbeat
@@ -370,7 +364,7 @@ def main(argv=None) -> int:
             target=_camera_loop, args=(ctrl, stop_cam), daemon=True
         ).start()
     server = PhoneServer((args.host, args.port), ctrl)
-    log_dir = os.environ.get("HCI_LOG_DIR", os.path.join(HERE, "..", "logs"))
+    log_dir = hci_config.log_dir(os.path.join(HERE, "..", "logs"))
     try:
         os.makedirs(log_dir, exist_ok=True)
         with open(os.path.join(log_dir, "phone_pairing.txt"), "w") as handle:

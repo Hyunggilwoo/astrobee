@@ -1,5 +1,17 @@
 # Validation
 
+Routine check, from a checkout with the dev requirements installed:
+
+```bash
+python3 -m pip install -r hci/crew_assist/requirements-dev.txt
+./hci/check.sh            # syntax, unused-import lint, mock pytest
+./hci/check.sh --sim      # also ROS 1 smoke, ROS 2 smoke, and phone e2e
+```
+
+`--sim` starts `./hci/up.sh` when port 8090 is down and leaves the stack up. It is not part of GitHub Actions. The workflow `.github/workflows/hci_crew_assist.yml` runs `./hci/check.sh` without `--sim`.
+
+The notes below are the milestone runs. They are not re-executed by the routine check.
+
 Checked on this agent VM (Ubuntu 24.04 host, Docker 29.1.3) on 19 Nov 2026.
 The simulator image is `ghcr.io/nasa/astrobee:latest-ubuntu20.04`.
 NASA flight sources in git were not modified. `nav_cam_rate` is patched only inside the container.
