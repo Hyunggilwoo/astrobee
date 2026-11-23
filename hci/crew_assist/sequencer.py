@@ -82,10 +82,15 @@ class Sequencer:
         self.frame = frame
         self.image_timeout_s = image_timeout_s
         self.camera_name = camera_name
+        self.on_progress = None
 
     # -- helpers ---------------------------------------------------------------
     def _run(self, res: SequenceResult, command: ac.Command) -> bool:
+        if self.on_progress is not None:
+            self.on_progress(command.cmd_name, "sending")
         ack = self.cmd.run(command, self.timeouts[command.cmd_name])
+        if self.on_progress is not None:
+            self.on_progress(command.cmd_name, ack.name)
         res.steps.append(
             StepLog(command.cmd_name, ack.name, ack.message, ack.elapsed_s)
         )

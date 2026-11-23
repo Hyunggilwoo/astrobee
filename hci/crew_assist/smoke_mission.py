@@ -13,6 +13,56 @@ from __future__ import annotations
 import argparse
 
 STEPS = ["undock", "go to rack alpha", "return to dock"]
+# ff_msgs/DockState.msg. Only these two are a settled robot.
+DOCKED = 0
+UNDOCKED = -4
+
+
+def docked_from_state(state):
+    """True when docked, False when undocked, None while a dock move is in progress."""
+    if state is None:
+        return None
+    value = int(state)
+    if value == DOCKED:
+        return True
+    if value == UNDOCKED:
+        return False
+    return None
+
+
+def sortie_steps(docked):
+    """Undock only when the robot is actually on the berth.
+
+    A second smoke, or a smoke after STOP, starts undocked. Sending undock
+    then fails closed and aborts the rest of the sortie.
+    """
+    if docked is None:
+        raise RuntimeError("dock state did not settle")
+    if docked:
+        return list(STEPS)
+    return list(STEPS[1:])
+
+
+def read_docked(timeout_s: float = 45.0):
+    """Block until beh/dock/state is DOCKED or UNDOCKED."""
+    import time
+
+    import rospy
+    from ff_msgs.msg import DockState
+
+    deadline = time.time() + timeout_s
+    last = None
+    while time.time() < deadline and not rospy.is_shutdown():
+        try:
+            msg = rospy.wait_for_message("beh/dock/state", DockState, timeout=2.0)
+        except rospy.ROSException:
+            continue
+        last = int(msg.state)
+        known = docked_from_state(last)
+        if known is not None:
+            return known
+        time.sleep(0.2)
+    raise RuntimeError("dock state did not settle (last=%s)" % last)
 
 
 def run(steps=None, timeout_s: float = 300.0, wait_status_s: float = 180.0) -> None:
@@ -22,8 +72,13 @@ def run(steps=None, timeout_s: float = 300.0, wait_status_s: float = 180.0) -> N
     import rospy
     from std_msgs.msg import String
 
-    steps = list(STEPS if steps is None else steps)
     rospy.init_node("hci_smoke", anonymous=True)
+    if steps is None:
+        docked = read_docked()
+        steps = sortie_steps(docked)
+        print("SMOKE docked=%s" % docked, flush=True)
+    else:
+        steps = list(steps)
     pub = rospy.Publisher("/crew_assist/intent", String, queue_size=1)
     state = {"msg": None}
 
@@ -80,7 +135,23 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--timeout", type=float, default=300.0, help="seconds to wait for each step"
     )
+    parser.add_argument(
+        "--print-steps",
+        action="store_true",
+        help="print the sortie steps for the current dock state and exit",
+    )
     args = parser.parse_args(argv)
+    if args.print_steps:
+        import rospy
+
+        rospy.init_node("hci_smoke_plan", anonymous=True)
+        try:
+            for step in sortie_steps(read_docked()):
+                print("STEP %s" % step, flush=True)
+        except Exception as exc:
+            print("SMOKE FAIL %s" % exc, flush=True)
+            return 1
+        return 0
     try:
         run(timeout_s=args.timeout)
     except Exception as exc:

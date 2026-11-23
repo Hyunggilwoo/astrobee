@@ -36,6 +36,8 @@ class CrewSession:
         self.confirm = confirm
         self.echo = echo
         self.results: List[SequenceResult] = []
+        self.activity = None
+        self.seq.on_progress = self._on_progress
         self._q: "queue.Queue[Optional[Intent]]" = queue.Queue()
         self._busy = threading.Event()
         self._worker = threading.Thread(
@@ -51,6 +53,7 @@ class CrewSession:
                 self._q.task_done()
                 return
             self._busy.set()
+            self.begin(intent)
             try:
                 r = self.seq.execute(intent)
                 self.results.append(r)
@@ -58,6 +61,7 @@ class CrewSession:
             except Exception as e:  # never let the worker die silently
                 log.exception("sequence crashed: %s", e)
             finally:
+                self.activity = None
                 self._busy.clear()
                 self._q.task_done()
 
@@ -114,8 +118,28 @@ class CrewSession:
             return intent
         if self.busy:
             self.echo("  queued (robot busy; say 'stop' to cancel)")
+        else:
+            self.begin(intent)
         self._q.put(intent)
         return intent
+
+    def begin(self, intent: Intent) -> None:
+        """Record the command that was just confirmed, before its ack."""
+        self.activity = {
+            "label": _activity_label(intent),
+            "action": intent.action,
+            "step": "",
+            "ack": "queued",
+        }
+
+    def _on_progress(self, cmd_name: str, ack: str) -> None:
+        current = self.activity or {}
+        self.activity = {
+            "label": current.get("label") or cmd_name,
+            "action": current.get("action") or "",
+            "step": cmd_name,
+            "ack": ack,
+        }
 
     def wait_idle(self, poll_s: float = 0.2) -> None:
         """Block until the queue drains. Raises KeyboardInterrupt to caller."""
@@ -125,3 +149,12 @@ class CrewSession:
     def close(self) -> None:
         self._q.put(None)
         self._worker.join(2.0)
+
+
+def _activity_label(intent: Intent) -> str:
+    if intent.action == "fly_path" and intent.waypoints:
+        pos = intent.waypoints[-1]["pos"]
+        return "fly to %.2f %.2f %.2f" % (pos[0], pos[1], pos[2])
+    if intent.target:
+        return "%s %s" % (intent.action, intent.target.replace("_", " "))
+    return intent.action

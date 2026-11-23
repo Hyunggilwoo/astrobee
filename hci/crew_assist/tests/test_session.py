@@ -88,7 +88,13 @@ def test_confirm_declined_sends_nothing():
     s.close()
 
 
-def _spawn(*extra):
+def _unblock_sigint():
+    # A background shell inherits SIGINT ignored. Restore the default so the
+    # CLI installs its KeyboardInterrupt handler and this test still measures it.
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+
+def _spawn(*extra, new_session=False):
     return subprocess.Popen(
         [
             sys.executable,
@@ -104,6 +110,8 @@ def _spawn(*extra):
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        start_new_session=new_session,
+        preexec_fn=_unblock_sigint if new_session else None,
     )
 
 
@@ -123,15 +131,35 @@ def test_cli_piped_typed_stop():
 
 
 def test_cli_sigint_stops_not_exits():
-    p = _spawn()
+    import os
+    import select
+
+    p = _spawn(new_session=True)
+    os.set_blocking(p.stdout.fileno(), False)
     p.stdin.write("undock\n")
     p.stdin.flush()
-    time.sleep(1.0)
-    p.send_signal(signal.SIGINT)
-    time.sleep(0.5)
+    out = ""
+    deadline = time.time() + 5
+    while "SEND undock" not in out and time.time() < deadline:
+        ready, _, _ = select.select([p.stdout], [], [], 0.2)
+        if ready:
+            chunk = p.stdout.read()
+            if chunk:
+                out += chunk
+    os.kill(p.pid, signal.SIGINT)
+    deadline = time.time() + 4
+    while "Ctrl-C -> stopAllMotion" not in out and time.time() < deadline:
+        if p.poll() is not None:
+            break
+        ready, _, _ = select.select([p.stdout], [], [], 0.2)
+        if ready:
+            chunk = p.stdout.read()
+            if chunk:
+                out += chunk
     assert p.poll() is None  # Ctrl-C did not kill the CLI
     p.stdin.write("quit\n")
     p.stdin.flush()
-    out = p.communicate(timeout=20)[0]
+    os.set_blocking(p.stdout.fileno(), True)
+    out += p.communicate(timeout=20)[0]
     assert "Ctrl-C -> stopAllMotion" in out
     assert "undock:CANCELED" in out

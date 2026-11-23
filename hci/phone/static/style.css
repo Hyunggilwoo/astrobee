@@ -6,16 +6,37 @@
   --muted: #9aa6b2;
   --line: #31404c;
   --stop: #d6453d;
+  --stop-height: 76px;
+  --stop-gap: 12px;
+  --stop-clearance: calc(
+    var(--stop-height) + var(--stop-gap) + env(safe-area-inset-bottom, 0px)
+  );
 }
 
 * { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+html { overflow: hidden; }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
   font: 18px/1.35 "Segoe UI", system-ui, sans-serif;
-  padding: 12px 12px 108px;
+  /* Fixed STOP bar. The page scrolls in #app, which ends above this padding,
+     so the map and the buttons cannot sit under the bar. */
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 12px 12px var(--stop-clearance);
+}
+
+#app {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 header, .sheet, main {
@@ -109,10 +130,11 @@ button { cursor: pointer; }
 
 #stop {
   position: fixed;
+  z-index: 5;
   left: 12px;
   right: 12px;
-  bottom: 12px;
-  height: 76px;
+  bottom: calc(var(--stop-gap) + env(safe-area-inset-bottom, 0px));
+  height: var(--stop-height);
   background: var(--stop);
   border-color: #8d2b26;
   color: white;

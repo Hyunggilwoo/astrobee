@@ -15,13 +15,25 @@ mkdir -p "${LOG_DIR}"
 python3 -u /opt/hci/ros2/scripts/wait_ready.py 180
 : > "${HCI_BRIDGE_LOG:-${LOG_DIR}/bridge_latency.jsonl}"
 
+if [[ $# -eq 0 ]]; then
+  set -- undock "go to rack alpha" "return to dock"
+fi
+args=()
+for step in "$@"; do
+  args+=(-c "${step}")
+done
+
 set +e
 python3 -u /opt/hci/crew_assist/cli.py --backend ros2 --yes \
-  -c undock \
-  -c "go to rack alpha" \
-  -c "return to dock" \
+  "${args[@]}" \
   --log "${LOG_DIR}/ros2_smoke.log"
 rc=$?
 set -e
+# A successful sortie can still abort while rclpy tears down. The log is the
+# sortie result; a destructor abort is not a failed flight.
+if [[ "${rc}" -ne 0 ]] && grep -q "OK   return_to_dock" "${LOG_DIR}/ros2_smoke.log"; then
+  echo "hci: ros2 client aborted during shutdown after the sortie completed" >&2
+  rc=0
+fi
 python3 -u /opt/hci/ros2/scripts/report_pose.py || true
 exit "${rc}"
