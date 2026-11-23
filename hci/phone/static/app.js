@@ -32,6 +32,8 @@
   var clientId = "";
   var previewId = "";
   var role = "locked";
+  var pending = "";
+  var heldLast = "";
 
   var pair = document.getElementById("pair");
   var app = document.getElementById("app");
@@ -156,9 +158,11 @@
   });
 
   document.getElementById("confirm").addEventListener("click", function () {
-    post("/api/confirm", { preview_id: previewId }).then(function () {
+    post("/api/confirm", { preview_id: previewId }).then(function (body) {
       readback.hidden = true;
       previewId = "";
+      pending = body.about || body.action || "command";
+      statusEl.textContent = "Moving. " + pending;
     }).catch(function (err) { statusEl.textContent = err.message; });
   });
 
@@ -187,7 +191,22 @@
       poseEl.textContent = pose
         ? pose.position.map(function (n) { return Number(n).toFixed(2); }).join("  ")
         : "pose —";
-      var line = (body.busy ? "Moving. " : "Idle. ") + (body.last || "");
+      var activity = body.activity;
+      var line;
+      if (activity && body.busy) {
+        var what = activity.label || activity.action || "command";
+        if (activity.step) what += " — " + activity.step + " " + activity.ack;
+        line = "Moving. " + what;
+        pending = "";
+      } else if (pending && (body.busy || (body.last || "") === heldLast)) {
+        // Confirmed, but this poll can arrive before the worker is marked busy.
+        // Keep the command just sent until the previous summary actually changes.
+        line = "Moving. " + pending;
+      } else {
+        pending = "";
+        line = (body.busy ? "Moving. " : "Idle. ") + (body.last || "");
+      }
+      heldLast = body.last || "";
       if (window.__stopNote) line += " " + window.__stopNote;
       statusEl.textContent = line;
       cam.src = "/api/camera.png?t=" + Date.now();

@@ -287,7 +287,12 @@ class PhoneController:
         if intent is None:
             raise KeyError("preview expired")
         self.session.enqueue(intent)
-        return {"ok": True, "action": intent.action, "target": intent.target}
+        return {
+            "ok": True,
+            "action": intent.action,
+            "target": intent.target,
+            "about": describe(intent),
+        }
 
     def cancel_preview(self, client_id: str, preview_id: str) -> None:
         if self.role_of(client_id) != "controller":
@@ -323,6 +328,9 @@ class PhoneController:
             else {"position": list(pose[0]), "quaternion": list(pose[1])},
             "last": None if last is None else last.summary(),
             "last_ok": None if last is None else bool(last.ok),
+            "activity": None
+            if self.session.activity is None
+            else dict(self.session.activity),
             "lines": lines,
             "dead_man_s": self.last_dead_man_s,
             "dead_man_count": self.dead_man_count,

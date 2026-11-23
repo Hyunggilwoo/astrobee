@@ -83,6 +83,11 @@ class Ros2Backend(ac.Backend):
         )
         return True
 
+    def close(self) -> None:
+        closer = getattr(self.transport, "close", None)
+        if closer:
+            closer()
+
     def current_pose(self):
         return self.transport.latest_pose()
 
@@ -147,6 +152,21 @@ class RclpyTransport:
         deadline = time.time() + connect_timeout_s
         while time.time() < deadline and not self.ready():
             time.sleep(0.05)
+
+    def close(self) -> None:
+        """Stop the spin thread before process exit.
+
+        rclpy aborts in its destructor if the context is still up when the
+        interpreter shuts down. The sortie itself has already finished.
+        """
+        try:
+            if self._rclpy.ok():
+                self._rclpy.shutdown()
+        except Exception:
+            return
+        spin = getattr(self, "_spin", None)
+        if spin is not None:
+            spin.join(2.0)
 
     def ready(self) -> bool:
         return bool(self._ready) and self.pub.get_subscription_count() > 0

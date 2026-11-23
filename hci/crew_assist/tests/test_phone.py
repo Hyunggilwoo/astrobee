@@ -116,6 +116,43 @@ def test_one_controller_others_are_view_only():
         ctrl.close()
 
 
+def test_inflight_status_names_the_command_just_confirmed():
+    ctrl = make_ctrl(move_time=0.6)
+    try:
+        claimed = ctrl.claim()
+        cid = claimed["client_id"]
+        undock = ctrl.preview(cid, "undock")
+        ctrl.confirm(cid, undock["preview_id"])
+        ctrl.session.wait_idle()
+        idle = ctrl.status(cid)
+        assert idle["activity"] is None
+        assert "undock" in idle["last"]
+        nxt = ctrl.preview(cid, "go to rack alpha")
+        sent = ctrl.confirm(cid, nxt["preview_id"])
+        assert "rack" in sent["about"]
+        seen = None
+        deadline = time.time() + 2
+        while time.time() < deadline:
+            body = ctrl.status(cid)
+            activity = body.get("activity") or {}
+            if activity.get("action") == "go_to":
+                seen = body
+                break
+            time.sleep(0.01)
+        assert seen is not None, idle
+        assert "undock" in seen["last"]
+        assert seen["activity"]["ack"] in ("queued", "sending", "OK")
+        assert (
+            "fly to" in seen["activity"]["label"] or "rack" in seen["activity"]["label"]
+        )
+        ctrl.session.wait_idle()
+        done = ctrl.status(cid)
+        assert done["activity"] is None
+        assert "simpleMove6DOF" in done["last"]
+    finally:
+        ctrl.close()
+
+
 def test_confirm_then_motion_and_stop_bypasses_readback():
     ctrl = make_ctrl(move_time=3.0)
     server = start_http(ctrl)
@@ -190,6 +227,11 @@ def test_dead_man_stops_motion_when_the_heartbeat_stops():
         assert ctrl.dead_man_count == 1
         assert 0.35 <= ctrl.last_dead_man_s < 0.8
         assert time.time() - started < 2.0
+        # The count is incremented just before the stop publish. Under load
+        # the assertion can run in that gap.
+        deadline = time.time() + 1
+        while not ctrl.backend.stops and time.time() < deadline:
+            time.sleep(0.01)
         assert ctrl.backend.stops[-1].cmd_name == "stopAllMotion"
     finally:
         ctrl.close()

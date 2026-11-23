@@ -104,25 +104,36 @@ def main(argv=None) -> int:
         parser, seq, commander, confirm=confirm, echo=lambda m: print(m, flush=True)
     )
 
+    def _close_backend() -> None:
+        closer = getattr(backend, "close", None)
+        if closer:
+            try:
+                closer()
+            except Exception:
+                pass
+
     if a.command:  # scripted: run each to completion, abort the script on failure
         ok = True
-        for line in a.command:
-            n_before = len(session.results)
-            intent = session.submit(line)
-            try:
-                session.wait_idle()
-            except KeyboardInterrupt:
-                session.stop("Ctrl-C")
-                ok = False
-                break
-            if intent is None or (
-                intent.action != "stop"
-                and (len(session.results) == n_before or not session.results[-1].ok)
-            ):
-                ok = False
-                print("aborting remaining scripted commands")
-                break
-        session.close()
+        try:
+            for line in a.command:
+                n_before = len(session.results)
+                intent = session.submit(line)
+                try:
+                    session.wait_idle()
+                except KeyboardInterrupt:
+                    session.stop("Ctrl-C")
+                    ok = False
+                    break
+                if intent is None or (
+                    intent.action != "stop"
+                    and (len(session.results) == n_before or not session.results[-1].ok)
+                ):
+                    ok = False
+                    print("aborting remaining scripted commands")
+                    break
+        finally:
+            session.close()
+            _close_backend()
         return 0 if ok else 1
 
     print(
@@ -156,6 +167,7 @@ def main(argv=None) -> int:
             print("", flush=True)
             session.stop("Ctrl-C")
     session.close()
+    _close_backend()
     return 0
 
 
